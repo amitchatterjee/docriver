@@ -1,0 +1,42 @@
+version: '0.0.1-SNAPSHOT'
+networks:
+  default:
+    name: dl
+    external: true
+services:
+  mysql:
+    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_bin --default-authentication-plugin=caching_sha2_password
+    container_name: mysql
+    environment:
+    - MYSQL_DATABASE=docriver
+    - MYSQL_USER=docriver
+    - MYSQL_PASSWORD=docriver
+    - MYSQL_ROOT_PASSWORD=docriver
+    healthcheck:
+      interval: 10s
+      retries: 10
+      start_period: 600s
+      test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
+      timeout: 5s
+    hostname: mysql
+    image: mysql:${DOCMGMT_MYSQL_VERSION:-8.2}
+    ports:
+    - ${DOCMGMT_MAPPED_MYSQL_PORT:-3306}:3306
+    restart: on-failure
+    volumes:
+    - ../mysql/init.sql:/docker-entrypoint-initdb.d/init.sql
+    - mysqldata:/var/lib/mysql
+  minio:
+    container_name: minio
+    image: quay.io/minio/minio:RELEASE.2023-12-23T07-19-11Z.fips
+    command: server /data --console-address ":9001"
+    # --sftp="address=:8022"
+    # --sftp="ssh-private-key=/home/miniouser/.ssh/id_rsa"
+    volumes:
+    - miniodata:/data
+    ports:
+    - ${DOCMGMT_MAPPED_MINIO_PORT:-9000}:9000
+    - ${DOCMGMT_MAPPED_MINIO_ADMIN_PORT:-9001}:9001
+volumes:
+  mysqldata: null
+  miniodata: null
