@@ -31,8 +31,9 @@ def parse_args():
     parser.add_argument("--objSecretKey", help="Secret key for the object store", default='docriver-secret')
     parser.add_argument("--bucket", help="Bucket name where the documents are stored", default='docriver')
 
-    parser.add_argument("--fileMount", help="mount point of the shared filesystem where data is stored", default='.')
-
+    parser.add_argument("--rawFileMount", help="mount point of the shared filesystem where raw documents is stored", default='.')
+    parser.add_argument("--untrustedFileMount", help="mount point of a filesystem where untrusted files are staged for validations, virus scans, etc", default='.')
+    
     parser.add_argument("--dbPoolSize", help="Connection pool size", type=int, default=5)
     parser.add_argument("--dbHost", help="Database host name", default='127.0.0.1')
     parser.add_argument("--dbPort", type=int, help="Database port number", default=3306)
@@ -80,7 +81,7 @@ def ingest():
     payload = request.json
     logging.info("Received transaction: {}/{}".format(payload['realm'], payload['txId']))
     validate_document(payload)
-    tx_id = ingest_document(cnx, minio, args.bucket, args.fileMount, payload)
+    tx_id = ingest_document(cnx, minio, args.bucket, args.rawFileMount, args.untrustedFileMount, payload)
     return jsonify({'status': 'ok', 'ref': tx_id})
 
 if __name__ == '__main__':

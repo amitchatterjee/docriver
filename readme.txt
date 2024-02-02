@@ -4,7 +4,7 @@
 docker network create dl
 
 # Install python dependencies
-pip install flask mysql-connector-python minio
+pip install flask mysql-connector-python minio file-validator
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
@@ -26,26 +26,31 @@ sudo dnf install mysql
         mc admin info docriver
 
 # Create storage area
-mkdir -p ~/storage/docriver/p123456/raw
+mkdir -p ~/storage/docriver/raw/p123456/
 
 #######################################################
 # Run components
 #######################################################
 # Start infrastructure components needed for the document repo server
-docker compose -f $HOME/git/dl-examples/docriver/src/main/compose/docker-compose.yml -p docriver up --detach
+docker compose -f $HOME/git/docriver/src/main/compose/docker-compose.yml -p docriver up --detach
 
 # Run Document Manager Server REST
-python $HOME/git/dl-examples/docriver/src/main/python/docmgmt_rest.py --fileMount $HOME/storage/docriver
+python $HOME/git/docriver/src/main/python/docmgmt_rest.py --rawFileMount $HOME/storage/docriver/raw
 
 #######################################################
 # Execute
 #######################################################
 # Document ingestion using the docriver CLI tool. Use -h for options
-$HOME/git/dl-examples/docriver/src/main/sh/docriver.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf
+
+# Inline document ingestion
+$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf
+
+# Ingestion from raw file mount
+$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -b $HOME/storage/docriver/raw
 
 # Cleanup
-echo 'DELETE FROM TX'| mysql -h 127.0.0.1 -u docriver -p docriver
 mc rm --recursive --force docriver/docriver/p123456
+echo 'DELETE FROM TX'| mysql -h 127.0.0.1 -u docriver -p docriver
 
 # Access the data
 mysql -h 127.0.0.1 -u docriver -p docriver

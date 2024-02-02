@@ -3,6 +3,7 @@ import base64
 import uuid
 import io
 import logging
+import mimetypes
 from minio.commonconfig import Tags
 
 from exceptions import ValidationException
@@ -26,15 +27,6 @@ DOC_EVENT_INSERT_SQL = ("""INSERT INTO DOC_EVENT (EVENT, STATUS, DOC_ID)
 REF_PROPERTIES_INSERT_SQL = ("""INSERT INTO REF_PROPERTIES (REF_ID, KEY_NAME, VALUE) 
                                 VALUES(%s, %s, %s)
                              """)
-
-MIME_EXT_MAP = {
-    'text/plain': 'txt',
-    'text/html': 'html',
-    'application/pdf': 'pdf',
-    "application/zip": 'zip',
-    "image/jpeg": 'jpg',
-    "image/png": 'png'
-}
 
 def current_time_ms():
     return round(time.time() * 1000)
@@ -62,7 +54,7 @@ def put_object(minio, bucket, doc_key, stream, mime_type, tags, properties):
         length=-1, part_size=10*1024*1024, 
         content_type=mime_type, tags=doc_tags, metadata=properties)
 
-def ingest(cnx, minio, bucket, file_mount, payload):
+def ingest(cnx, minio, bucket, raw_file_mount, untrusted_file_mount, payload):
     connection = cnx.get_connection()
     cursor = connection.cursor()
     try:
@@ -82,21 +74,21 @@ def ingest(cnx, minio, bucket, file_mount, payload):
 
         documents = payload['documents']
         for document in documents:
-            # Create a unique document key
-            doc_key = "/{}/raw/{}.{}".format(payload['realm'], uuid.uuid1(), 
-                MIME_EXT_MAP[document['content']['mimeType']] if document['content']['mimeType'] in MIME_EXT_MAP else 'unk' )
-
-            cursor.execute(DOC_INSERT_SQL, (
-            document['operation'] if 'operation' in document else None, 
-            document['documentId'], 
-            document['version'] if 'version' in document else current_time_ms(), 
-            document['type'], tx_id, document['content']['mimeType'],
-            "minio:{}:{}".format(bucket, doc_key),
-            document['replaces']['documentId'] if 'replaces' in document else None,
-            document['replaces']['version'] if 'replaces' in document and 'version' in document['replaces'] else None))
-            doc_id = cursor.lastrowid
-
             # TODO add content validation
+            ext = mimetypes.guess_extension(document['content']['mimeType'], False) 
+            ext = ext if ext else '.unk'
+            version = document['version'] if 'version' in document else current_time_ms()
+            doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], version, ext)
+            
+            cursor.execute(DOC_INSERT_SQL, (
+                document['operation'] if 'operation' in document else None, 
+                document['documentId'], 
+                version, 
+                document['type'], tx_id, document['content']['mimeType'],
+                "minio:{}:{}".format(bucket, doc_key),
+                document['replaces']['documentId'] if 'replaces' in document else None,
+                document['replaces']['version'] if 'replaces' in document and 'version' in document['replaces'] else None))
+            doc_id = cursor.lastrowid
 
             # Write the document to the object store
             stream=None
@@ -107,7 +99,7 @@ def ingest(cnx, minio, bucket, file_mount, payload):
                     document['tags'] if 'tags' in document else None,
                     document['properties'] if 'properties' in document else None)
             elif 'filePath' in document['content']:
-                with io.FileIO("{}/{}/raw/{}".format(file_mount, payload['realm'], document['content']['filePath'])) as stream:
+                with io.FileIO("{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['filePath'])) as stream:
                     put_object(minio, bucket, doc_key, stream, document['content']['mimeType'],
                                document['tags'] if 'tags' in document else None,
                                document['properties'] if 'properties' in document else None)

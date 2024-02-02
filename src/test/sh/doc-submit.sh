@@ -87,8 +87,8 @@ EOF
 )
 else
   # Copy the file to the storage area
-  mkdir -p "${file_volume}/${realm}/raw/"
-  cp "$input_file" "${file_volume}/${realm}/raw/"
+  mkdir -p "${file_volume}/${realm}/"
+  cp "$input_file" "${file_volume}/${realm}/"
   file_content=$(cat << EOF
 "filePath": "$(basename $input_file)"
 EOF
