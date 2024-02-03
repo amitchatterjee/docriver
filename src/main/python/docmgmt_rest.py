@@ -51,8 +51,8 @@ def handle_validation_error(e):
     return str(e), 400
 
 @app.errorhandler(Exception)
-def handle_validation_error(e):
-    logging.error("Exception: {}".format(e), e)
+def handle_internal_error(e):
+    logging.error(e, exc_info=True)
     return str(e), 500
 
 def db_health():

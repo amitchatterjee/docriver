@@ -35,7 +35,7 @@ mkdir -p ~/storage/docriver/raw/p123456/
 docker compose -f $HOME/git/docriver/src/main/compose/docker-compose.yml -p docriver up --detach
 
 # Run Document Manager Server REST
-python $HOME/git/docriver/src/main/python/docmgmt_rest.py --rawFileMount $HOME/storage/docriver/raw
+python $HOME/git/docriver/src/main/python/docmgmt_rest.py --rawFileMount $HOME/storage/docriver/raw --untrustedFileMount $HOME/storage/docriver/untrusted
 
 #######################################################
 # Execute

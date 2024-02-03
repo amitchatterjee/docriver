@@ -1,9 +1,11 @@
 import time
 import base64
-import uuid
 import io
+import os
 import logging
 import mimetypes
+import shutil
+import string
 from minio.commonconfig import Tags
 
 from exceptions import ValidationException
@@ -73,39 +75,54 @@ def ingest(cnx, minio, bucket, raw_file_mount, untrusted_file_mount, payload):
                         cursor.execute(REF_PROPERTIES_INSERT_SQL, (ref_id, k, v))
 
         documents = payload['documents']
+
+        stage_dir = "{}/{}/{}".format(untrusted_file_mount, payload['realm'], payload['txId'])
+        os.makedirs(stage_dir)
+
+        # Assemble all the document in untrusted area for security and other validations
         for document in documents:
-            # TODO add content validation
             ext = mimetypes.guess_extension(document['content']['mimeType'], False) 
             ext = ext if ext else '.unk'
             version = document['version'] if 'version' in document else current_time_ms()
+            if 'version' not in document:
+                document['version'] = version
+
             doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], version, ext)
+            document['dr:docKey'] = doc_key
+            stage_filename = "{}/{}-{}{}".format(stage_dir, document['documentId'], version, ext)
+            document['dr:stageFilename'] = stage_filename
+            if 'data' in document['content']:
+                content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['data'])
+                # TODO this may not be a binary file. Using mimetype, determine if the file is binary or not and use "w" va. "wb"
+                with open(stage_filename, "wb") as ostream:
+                    ostream.write(content)
+            elif 'filePath' in document['content']:
+                shutil.copyfile("{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['filePath']), stage_filename)
+            else:
+                raise ValidationException('Unsupported content')
             
+        # TODO add content validation
+
+        for document in documents:            
             cursor.execute(DOC_INSERT_SQL, (
                 document['operation'] if 'operation' in document else None, 
                 document['documentId'], 
-                version, 
-                document['type'], tx_id, document['content']['mimeType'],
-                "minio:{}:{}".format(bucket, doc_key),
+                document['version'], 
+                document['type'], 
+                tx_id, 
+                document['content']['mimeType'],
+                "minio:{}:{}".format(bucket, document['dr:docKey']),
                 document['replaces']['documentId'] if 'replaces' in document else None,
                 document['replaces']['version'] if 'replaces' in document and 'version' in document['replaces'] else None))
             doc_id = cursor.lastrowid
 
             # Write the document to the object store
-            stream=None
-            if 'data' in document['content']:
-                content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['data'])
-                stream = io.BytesIO(content)
-                put_object(minio, bucket, doc_key, stream, document['content']['mimeType'],
+            with io.FileIO(document['dr:stageFilename']) as stream:
+                put_object(minio, bucket, document['dr:docKey'], stream, 
+                    document['content']['mimeType'],
                     document['tags'] if 'tags' in document else None,
                     document['properties'] if 'properties' in document else None)
-            elif 'filePath' in document['content']:
-                with io.FileIO("{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['filePath'])) as stream:
-                    put_object(minio, bucket, doc_key, stream, document['content']['mimeType'],
-                               document['tags'] if 'tags' in document else None,
-                               document['properties'] if 'properties' in document else None)
-            else:
-                raise ValidationException('Unsupported content')
-
+                
             cursor.execute(DOC_EVENT_INSERT_SQL, ('INGESTION', 'C', doc_id))
 
         cursor.execute(TX_EVENT_INSERT_SQL, ('INGESTION', 'C', tx_id))
