@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+
+<head>
+    <title>Document Submission</title>
+</head>
+
+<body>
+    <h1>Document Submission</h1>
+    <form method="POST" action="http://localhost:5000/form/document" enctype="multipart/form-data">
+        <p>Manifest:<br/>
+        <textarea id="manifest" name="manifest" rows="20" cols="50" required></textarea></p>
+        <p>Upload one or more files<br/>
+        <input type="file" name="files" required multiple></p>
+        <p><input type="submit" value="Submit"></p>
+    </form>
+</body>
+
+</html>

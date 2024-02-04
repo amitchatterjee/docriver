@@ -135,5 +135,7 @@ cat << EOF > /tmp/docriver-rest.json
 }
 EOF
 
-curl -X POST -H 'Content-Type: application/json' --data "@/tmp/docriver-rest.json" http://localhost:5000/document
+curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/docriver-rest.json" http://localhost:5000/rest/document
 echo
+
+# curl -v -F key1=value1 -F upload=@localfilename URL

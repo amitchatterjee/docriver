@@ -1,12 +1,19 @@
-from flask import Flask, jsonify, request, abort
+from flask import Flask, jsonify, request, send_from_directory
+from flask_accept import accept
+from flask_cors import CORS
 import mysql.connector
 from minio import Minio
-from document_ingest import validate as validate_document, ingest as ingest_document
 import argparse
 import logging
+import os
+import shutil
+import json
+
 from exceptions import ValidationException
+from document_ingest import validate_manifest, ingest_tx, stage_and_validate_documents, stage_dirname
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 def init_db():
     global cnx
@@ -76,13 +83,46 @@ def get_health():
     return jsonify({'status': 'UP' if healthy_overall else 'DOWN', 
                     'db': db_healthy, 'minio': minio_healthy})
 
-@app.route('/document', methods=['POST', 'PUT'])
-def ingest():
-    payload = request.json
-    logging.info("Received transaction: {}/{}".format(payload['realm'], payload['txId']))
-    validate_document(payload)
-    tx_id = ingest_document(cnx, minio, args.bucket, args.rawFileMount, args.untrustedFileMount, payload)
-    return jsonify({'status': 'ok', 'ref': tx_id})
+def ingest(payload):
+    stage_dir = None
+    try:
+        logging.info("Received REST ingestion request: {}/{}".format(payload['realm'], payload['txId']))
+        validate_manifest(payload)
+        stage_dir = stage_and_validate_documents(args.untrustedFileMount, args.rawFileMount, payload)
+        return ingest_tx(cnx, minio, args.bucket, payload)
+    finally:
+        if stage_dir:
+            shutil.rmtree(stage_dir)
+
+@app.route('/rest/document', methods=['POST', 'PUT'])
+@accept('application/json')
+def ingest_json():
+    tx_id = ingest(request.json)
+    return jsonify({'status': 'ok', 'ref': tx_id}), {'Content-Type': 'application/json'}
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'),
+                               'favicon.ico', mimetype='image/vnd.microsoft.icon')
+
+@app.route('/form/document', methods=['POST'])
+@accept('text/html')
+def upload_file():
+    stage_dir = None
+    try:
+        manifest = request.form['manifest']
+        payload = json.loads(manifest)
+        stage_dir = stage_dirname(args.untrustedFileMount, payload)
+        os.makedirs(stage_dir)
+
+        for uploaded_file in request.files.getlist('files'):
+            if uploaded_file.filename != '':
+                uploaded_file.save("{}/{}".format(stage_dir, uploaded_file.filename))
+                print(uploaded_file.filename)
+        return "done", 'text/html'
+    finally:
+         if stage_dir:
+            shutil.rmtree(stage_dir)
 
 if __name__ == '__main__':
     parse_args()
@@ -93,3 +133,4 @@ if __name__ == '__main__':
     init_obj_store()
 
     app.run(debug=True)
+

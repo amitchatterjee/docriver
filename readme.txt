@@ -4,7 +4,7 @@
 docker network create dl
 
 # Install python dependencies
-pip install flask mysql-connector-python minio file-validator
+pip install flask mysql-connector-python minio file-validator flask-accept flask-cors
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
@@ -35,7 +35,7 @@ mkdir -p ~/storage/docriver/raw/p123456/
 docker compose -f $HOME/git/docriver/src/main/compose/docker-compose.yml -p docriver up --detach
 
 # Run Document Manager Server REST
-python $HOME/git/docriver/src/main/python/docmgmt_rest.py --rawFileMount $HOME/storage/docriver/raw --untrustedFileMount $HOME/storage/docriver/untrusted
+python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFileMount $HOME/storage/docriver/raw --untrustedFileMount $HOME/storage/docriver/untrusted
 
 #######################################################
 # Execute

@@ -1,10 +1,10 @@
 {
-    "txId": "1234567",
+    "txId": "9999999",
     "realm": "p123456",
     "documents": [
         {
             "operation": "I",
-            "documentId": "123456789",
+            "documentId": "555555555",
             "version": 1,
             "type": "medical-record",
 
@@ -20,14 +20,7 @@
 
             "content": {
                 "mimeType": "text/plain",
-
-                "fetchURL": "http/scp/file://URL",
-                "fetchSecret": "handle for a secrets confiiguration in the server",
-
-                "encoding": "base64",
-                "data": "aGVsbG93IHdvcmxk",
-
-                "filePath": "/x/y/z.pdf"
+                "filePath": "/wakemed-payment.pdf"
             }
         }
     ],
