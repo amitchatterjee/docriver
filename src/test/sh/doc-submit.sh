@@ -78,6 +78,7 @@ if [ -z "$input_file" ]; then
 fi
 
 file_content=
+mime_content=
 if [ -z "$file_volume" ]; then
   raw=$(cat $input_file  | base64 -w 0)
   file_content=$(cat << EOF
@@ -85,6 +86,7 @@ if [ -z "$file_volume" ]; then
 "data": "$raw"
 EOF
 )
+  mime_content="\"mimeType\": \"${mime_type}\","
 else
   # Copy the file to the storage area
   mkdir -p "${file_volume}/${realm}/"
@@ -94,6 +96,8 @@ else
 EOF
 )
 fi
+
+
 
 raw=$(cat $input_file  | base64 -w 0)
 
@@ -116,8 +120,7 @@ cat << EOF > /tmp/docriver-rest.json
             },
 
             "content": {
-                "mimeType": "${mime_type}",
-
+                $mime_content
                 $file_content
             }
         }

@@ -8,12 +8,16 @@ import logging
 import os
 import shutil
 import json
+import uuid
 
 from exceptions import ValidationException
-from document_ingest import validate_manifest, ingest_tx, stage_and_validate_documents, stage_dirname
+from document_ingest import validate_manifest, preprocess_manifest, ingest_tx, stage_documents, validate_documents
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
+
+def stage_dirname(untrusted_file_mount):
+    return "{}/{}".format(untrusted_file_mount, uuid.uuid1())
 
 def init_db():
     global cnx
@@ -84,14 +88,17 @@ def get_health():
                     'db': db_healthy, 'minio': minio_healthy})
 
 def ingest(payload):
-    stage_dir = None
+    stage_dir = stage_dirname(args.untrustedFileMount)
     try:
+        os.makedirs(stage_dir, exist_ok=True)
         logging.info("Received REST ingestion request: {}/{}".format(payload['realm'], payload['txId']))
         validate_manifest(payload)
-        stage_dir = stage_and_validate_documents(args.untrustedFileMount, args.rawFileMount, payload)
+        preprocess_manifest(payload)
+        stage_documents(stage_dir, args.rawFileMount, payload)
+        validate_documents(stage_dir)
         return ingest_tx(cnx, minio, args.bucket, payload)
     finally:
-        if stage_dir:
+        if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
 
 @app.route('/rest/document', methods=['POST', 'PUT'])
@@ -105,24 +112,38 @@ def favicon():
     return send_from_directory(os.path.join(app.root_path, 'static'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
 
+def find_matching_document(documents, filename):
+    for document in documents:
+        if document['content']['filePath'] == '/' + filename:
+            return document
+    raise ValidationException('file not found')
+
 @app.route('/form/document', methods=['POST'])
 @accept('text/html')
 def upload_file():
-    stage_dir = None
-    try:
-        manifest = request.form['manifest']
-        payload = json.loads(manifest)
-        stage_dir = stage_dirname(args.untrustedFileMount, payload)
-        os.makedirs(stage_dir)
+    manifest = request.form['manifest']
+    payload = json.loads(manifest)
+    logging.info("Received FORM ingestion request: {}/{}".format(payload['realm'], payload['txId']))
 
+    validate_manifest(payload)
+    preprocess_manifest(payload)
+    stage_dir = stage_dirname(args.untrustedFileMount)
+    
+    try:
+        os.makedirs(stage_dir)
         for uploaded_file in request.files.getlist('files'):
-            if uploaded_file.filename != '':
-                uploaded_file.save("{}/{}".format(stage_dir, uploaded_file.filename))
-                print(uploaded_file.filename)
-        return "done", 'text/html'
+            staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
+            uploaded_file.save(staged_filename)
+            document = find_matching_document(payload['documents'], uploaded_file.filename)['dr:stageFilename'] = staged_filename
+
+        validate_documents(stage_dir)
+        tx_id = ingest_tx(cnx, minio, args.bucket, payload)
+        return "txId: {}".format(tx_id), 'text/html'
     finally:
-         if stage_dir:
+         if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
+
+# curl -H "Content-Type: multipart/mixed" -F "request={"param1": "value1"};type=application/json"
 
 if __name__ == '__main__':
     parse_args()
