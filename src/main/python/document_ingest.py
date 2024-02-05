@@ -53,16 +53,16 @@ def stage_documents(stage_dir, raw_file_mount, payload):
     # Assemble all the document in untrusted area for security and other validations
     stage_filename = None
     for document in documents:
-        if 'data' in document['content']:
+        if 'inline' in document['content']:
             ext = mimetypes.guess_extension(document['content']['mimeType'], False) 
             ext = ext if ext else '.unk'            
             stage_filename = "{}/{}-{}{}".format(stage_dir, document['documentId'], document['version'], ext)
-            content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['data'])
+            content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
             # TODO this may not be a binary file. Using mimetype, determine if the file is binary or not and use "w" va. "wb"
             with open(stage_filename, "wb") as stream:
                 stream.write(content)
-        elif 'filePath' in document['content']:
-            src_filename = "{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['filePath'])
+        elif 'path' in document['content']:
+            src_filename = "{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['path'])
             stage_filename = "{}/{}".format(stage_dir, os.path.split(src_filename)[1])
             shutil.copyfile(src_filename, stage_filename)
         else:
@@ -94,7 +94,7 @@ def ingest_tx(cnx, minio, bucket, payload):
                 if 'properties' in reference:
                     for k,v in reference['properties'].items():
                         cursor.execute( ("""
-                                INSERT INTO REF_PROPERTIES (REF_ID, KEY_NAME, VALUE) VALUES(%s, %s, %s)
+                                INSERT INTO REF_PROPERTY (REF_ID, KEY_NAME, VALUE) VALUES(%s, %s, %s)
                              """), 
                              (ref_id, k, v))
 

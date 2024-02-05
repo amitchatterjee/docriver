@@ -43,10 +43,10 @@ python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFileMount $HOME/s
 # Document ingestion using the docriver CLI tool. Use -h for options
 
 # Inline document ingestion
-$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf
 
 # Ingestion from raw file mount
-$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -b $HOME/storage/docriver/raw
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -b $HOME/storage/docriver/raw
 
 # Cleanup
 mc rm --recursive --force docriver/docriver/p123456

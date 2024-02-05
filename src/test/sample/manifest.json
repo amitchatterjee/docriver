@@ -20,7 +20,7 @@
 
             "content": {
                 "mimeType": "text/plain",
-                "filePath": "/wakemed-payment.pdf"
+                "path": "/wakemed-payment.pdf"
             }
         }
     ],

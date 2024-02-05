@@ -20,14 +20,10 @@
 
             "content": {
                 "mimeType": "text/plain",
-
-                "fetchURL": "http/scp/file://URL",
-                "fetchSecret": "handle for a secrets confiiguration in the server",
-
                 "encoding": "base64",
-                "data": "aGVsbG93IHdvcmxk",
+                "inline": "aGVsbG93IHdvcmxk",
 
-                "filePath": "/x/y/z.pdf"
+                "path": "/x/y/z.pdf"
             }
         }
     ],

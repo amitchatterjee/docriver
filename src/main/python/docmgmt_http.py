@@ -114,24 +114,32 @@ def favicon():
 
 def find_matching_document(documents, filename):
     for document in documents:
-        if document['content']['filePath'] == '/' + filename:
+        if document['content']['path'] == '/' + filename:
             return document
     raise ValidationException('file not found')
+
+def get_payload(request):
+    for uploaded_file in request.files.getlist('files'):
+        if uploaded_file.filename == 'manifest.json':
+            manifest = uploaded_file.read()
+            return json.loads(manifest)
+    raise ValidationException('manifest file not found')
 
 @app.route('/form/document', methods=['POST'])
 @accept('text/html')
 def upload_file():
-    manifest = request.form['manifest']
-    payload = json.loads(manifest)
-    logging.info("Received FORM ingestion request: {}/{}".format(payload['realm'], payload['txId']))
-
-    validate_manifest(payload)
-    preprocess_manifest(payload)
     stage_dir = stage_dirname(args.untrustedFileMount)
-    
     try:
+        payload = get_payload(request)
+        logging.info("Received FORM ingestion request: {}/{}".format(payload['realm'], payload['txId']))
+
+        validate_manifest(payload)
+        preprocess_manifest(payload)
+
         os.makedirs(stage_dir)
         for uploaded_file in request.files.getlist('files'):
+            if uploaded_file.filename == 'manifest.json':
+                continue
             staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
             uploaded_file.save(staged_filename)
             document = find_matching_document(payload['documents'], uploaded_file.filename)['dr:stageFilename'] = staged_filename
@@ -142,8 +150,6 @@ def upload_file():
     finally:
          if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
-
-# curl -H "Content-Type: multipart/mixed" -F "request={"param1": "value1"};type=application/json"
 
 if __name__ == '__main__':
     parse_args()
