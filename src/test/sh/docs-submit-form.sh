@@ -74,7 +74,9 @@ manifest=$(for file in $files; do
   jq -n --arg fname "$file_name" '{path: ("/" + $fname)}' \
     | jq -n --arg docid "$file_name_no_ext" --arg version "$ts" --arg type "$extension" \
         '{operation: "I", documentId: $docid, version: $version, type: $type, content: inputs}'
-done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}')
+done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}' \
+     | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
+)
 
 echo $manifest > /tmp/manifest.json
 
@@ -84,7 +86,7 @@ for file in $files; do
   params+=(-F "files=@${file}")
 done
 # echo "${params[@]}"
-curl -H "Accept: text/html" "${params[@]}" "$server_url"
+curl --progress-bar -H "Accept: text/html" "${params[@]}" "$server_url"
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL
