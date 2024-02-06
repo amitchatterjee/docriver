@@ -11,7 +11,7 @@ resource_description='blah blah blah'
 operation=i
 command=submit
 realm=p123456
-server_url=http://localhost:5000/rest/document
+server_url=http://localhost:5000/form/document
 
 OPTIONS="ht:f:x:r:i:p:u:"
 OPTIONS_DESCRIPTION=$(cat << EOF
@@ -64,49 +64,27 @@ if [ -z "$input_folder" ]; then
 fi
 
 files=$(ls -1 $input_folder | grep -v -E '\s' | grep -i -E "$file_selection_regex"  | grep -v manifest.json)
+
+ts=$(date +%s)
+files=$(find  $input_folder -maxdepth 1 -regextype posix-egrep -regex "$file_selection_regex" | grep -v -E '\s' | grep -v manifest.json)
+manifest=$(for file in $files; do
+  file_name=$(basename "$file")
+  file_name_no_ext=${file_name%.*}
+  extension="${file_name##*.}"
+  jq -n --arg fname "$file_name" '{path: ("/" + $fname)}' \
+    | jq -n --arg docid "$file_name_no_ext" --arg version "$ts" --arg type "$extension" \
+        '{operation: "I", documentId: $docid, version: $version, type: $type, content: inputs}'
+done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}')
+
+echo $manifest > /tmp/manifest.json
+
+params=()
+params+=(-F "files=@/tmp/manifest.json")
 for file in $files; do
-  echo $file
+  params+=(-F "files=@${file}")
 done
-exit 0
-
-cat << EOF > /tmp/manifest.json
-{
-    "txId": "${tx_id}",
-    "realm": "${realm}",
-    "documents": [
-        {
-            "operation": "I",
-            "documentId": "${doc_id}",
-            "version": ${doc_version},
-            "type": "${doc_type}",
-
-            "tags": {
-              "tag1": "value1"
-            },
-            "properties": {
-                "key1": "value1"
-            },
-
-            "content": {
-                $mime_content
-                $file_content
-            }
-        }
-    ],
-    "references": [
-        {
-            "resourceType": "${resource_type}",
-            "resourceId": "${resource_id}",
-            "description": "${resource_description}",
-            "properties": {
-                "key1": "value1"
-            }
-        }
-    ]
-}
-EOF
-
-curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/docriver-rest.json" "$server_url"
+# echo "${params[@]}"
+curl -H "Accept: text/html" "${params[@]}" "$server_url"
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL
