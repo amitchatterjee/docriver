@@ -12,8 +12,9 @@ operation=i
 command=submit
 realm=p123456
 server_url=http://localhost:5000/form/document
+verbose=
 
-OPTIONS="ht:f:x:r:i:p:u:"
+OPTIONS="ht:f:x:r:i:p:u:v"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -24,6 +25,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -i <REF_RESOURCE_ID>: reference resource id. Default: $resource_id
     -p <REF_RESOURCE_DESCRIPTION>: reference resource description. Default: $resource_description
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
+    -v: for verbose and debug output 
 EOF
 )
 
@@ -49,6 +51,8 @@ while getopts $OPTIONS opt; do
       ;;
     u)
       server_url="$OPTARG"
+      ;;
+    v) verbose="-v --progress-bar"
       ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
@@ -86,7 +90,7 @@ for file in $files; do
   params+=(-F "files=@${file}")
 done
 # echo "${params[@]}"
-curl --progress-bar -H "Accept: text/html" "${params[@]}" "$server_url"
+curl $verbose -H "Accept: text/html" "${params[@]}" "$server_url"
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

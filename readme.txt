@@ -4,7 +4,7 @@
 docker network create dl
 
 # Install python dependencies
-pip install flask mysql-connector-python minio file-validator flask-accept flask-cors
+pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 

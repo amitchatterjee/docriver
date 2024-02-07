@@ -7,12 +7,23 @@ import logging
 import mimetypes
 import shutil
 import pathlib
+import fleep
 from minio.commonconfig import Tags
+from os import listdir
+from os.path import isfile, join
+import json
 
 from exceptions import ValidationException
 
 def current_time_ms():
     return round(time.time() * 1000)
+
+def get_payload_from_form(request):
+    for uploaded_file in request.files.getlist('files'):
+        if uploaded_file.filename == 'manifest.json':
+            manifest = uploaded_file.read()
+            return json.loads(manifest)
+    raise ValidationException('manifest file not found')
 
 def validate_manifest(payload):
     if not payload or not 'txId' in payload \
@@ -48,7 +59,8 @@ def put_object(minio, bucket, doc_key, stream, mime_type, tags, properties):
 # doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
 # document['dr:docKey'] = doc_key
     
-def stage_documents(stage_dir, raw_file_mount, payload):
+def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
+    filename_mime_dict = {}
     documents = payload['documents']
     # Assemble all the document in untrusted area for security and other validations
     stage_filename = None
@@ -68,10 +80,49 @@ def stage_documents(stage_dir, raw_file_mount, payload):
         else:
             raise ValidationException('Unsupported content')
         document['dr:stageFilename'] = stage_filename
+        if 'mimeType' not in document['content']:
+            document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
+        filename_mime_dict[stage_filename] = document['content']['mimeType']
+    return filename_mime_dict
 
-def validate_documents(stage_dir):
+def find_matching_document(documents, filename):
+    for document in documents:
+        if document['content']['path'] == '/' + filename:
+            return document
+    raise ValidationException('file not found')
+
+def stage_documents_from_form(request, stage_dir, payload):
+    filename_mime_dict = {}
+    for uploaded_file in request.files.getlist('files'):
+        if uploaded_file.filename == 'manifest.json':
+            continue
+        staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
+        uploaded_file.save(staged_filename)
+        document = find_matching_document(payload['documents'], uploaded_file.filename)
+        document['dr:stageFilename'] = staged_filename
+        if 'mimeType' not in document['content']:
+            document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
+        filename_mime_dict[staged_filename] = document['content']['mimeType']
+    return filename_mime_dict
+
+def validate_documents(stage_dir, filename_mime_dict):
+    for file in listdir(stage_dir):
+        full_path = join(stage_dir, file)
+        ext = pathlib.Path(full_path).suffix
+        if isfile(full_path):
+            print(full_path)
+            with open(full_path, 'rb') as stream:
+                content = stream.read(128)
+                info = fleep.get(content)
+                if not info.extension_matches(ext[1:]):
+                    raise ValidationException("Magic mismatch for extension in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                if not info.mime_matches(filename_mime_dict[full_path]):
+                    raise ValidationException("Magic mismatch for mimeType in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                # print('Type:', info.type)
+                # print('File extension:', info.extension[0])
+                # print('MIME type:', info.mime[0]) 
+
     # TODO add virus scanning and file validation using magic
-    pass
 
 def ingest_tx(cnx, minio, bucket, payload):
     connection = cnx.get_connection()
@@ -100,8 +151,6 @@ def ingest_tx(cnx, minio, bucket, payload):
 
         documents = payload['documents']
         for document in documents: 
-            if 'mimeType' not in document['content']:
-                document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
             ext = pathlib.Path(document['dr:stageFilename']).suffix
             doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
 
