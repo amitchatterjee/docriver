@@ -19,7 +19,7 @@ services:
       test: mysqladmin ping -h mysql -u $$MYSQL_USER --password=$$MYSQL_PASSWORD
       timeout: 5s
     hostname: mysql
-    image: mysql:${DOCMGMT_MYSQL_VERSION:-8.2}
+    image: mysql:${DOCRIVER_MYSQL_VERSION:-8.2}
     ports:
     - ${DOCMGMT_MAPPED_MYSQL_PORT:-3306}:3306
     restart: on-failure
@@ -37,6 +37,15 @@ services:
     ports:
     - ${DOCMGMT_MAPPED_MINIO_PORT:-9000}:9000
     - ${DOCMGMT_MAPPED_MINIO_ADMIN_PORT:-9001}:9001
+  clamav:
+    container_name: clamav
+    image: clamav/clamav:stable_base
+    volumes:
+    - clamavdata:/var/lib/clamav
+    - ${DOCRIVER_UNTRUSTED_ROOT:-/home/amit/storage/docriver/untrusted}:/scandir
+    ports:
+    - ${DOCMGMT_MAPPED_CLAMAV_PORT:-3310}:3310
 volumes:
   mysqldata: null
   miniodata: null
+  clamavdata: null

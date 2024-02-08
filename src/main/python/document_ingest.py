@@ -125,7 +125,7 @@ def validate_documents(stage_dir, filename_mime_dict):
 
     # TODO this code is temporary
     command="""
-        docker run -it --rm --name clamscan --mount type=bind,source={},target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan  /scandir
+        docker run -it --rm --name clamdscan --network dl --mount type=bind,source={},target=/scandir --mount type=bind,source=$HOME/git/docriver/src/test/conf/clam.remote.conf,target=/conf/clam.remote.conf  clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout -c /conf/clam.remote.conf /scandir
     """.format(stage_dir)
     result = subprocess.run(command, shell=True, stderr=STDOUT, stdout=PIPE, text=True, check=True)
     print(result.stdout)

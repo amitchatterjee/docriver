@@ -48,6 +48,9 @@ $HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y paymen
 # Ingestion from raw file mount
 $HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -b $HOME/storage/docriver/raw
 
+# Multipart form file ingestion
+$HOME/git/docriver/src/test/sh/docs-submit-form.sh -f ~/cheetah 
+
 # Cleanup
 mc rm --recursive --force docriver/docriver/p123456
 echo 'DELETE FROM TX'| mysql -h 127.0.0.1 -u docriver -p docriver
@@ -58,14 +61,8 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 #######################################################
 # Virus Scan
 #######################################################
-mkdir -p $HOME/storage/clamav/sockets
+# Virus scanner with clamscan - this does not require server but it is slower. Note the use of signaturedb. This is the directory where the signatures are downloaded, stored and refreshed. This is important to setup. Otherwise, there will be a long download everytime clamscan is called. This will be very slow and will also result in rate-limiting from the sites where the signatures are downloaded 
 mkdir -p $HOME/storage/clamav/signaturedb
-chmod -R a+rwx $HOME/storage/clamav/sockets $HOME/storage/clamav/signaturedb
+chmod -R a+rwx $HOME/storage/clamav/signaturedb
 
-# Virus scanner with clamav server and clamdscan client
-docker run -it --rm --name clamav -p 3310:3310 --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav --mount type=bind,source=$HOME/storage/clamav/sockets/,target=/tmp/ clamav/clamav:stable_base
-
-docker run -it --rm --name clamdscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --mount type=bind,source=$HOME/storage/clamav/sockets/,target=/tmp clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout /scandir/cheetah
-
-# Virus scanner with clamscan - this does not require server but it likely to be slower
-docker run -it --rm --name clamscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan /scandir/cheetah
+docker run -it --rm --network dl --name clamscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan /scandir/<DIR_TOSCAN>
