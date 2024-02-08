@@ -12,6 +12,8 @@ from minio.commonconfig import Tags
 from os import listdir
 from os.path import isfile, join
 import json
+import subprocess
+from subprocess import PIPE, STDOUT
 
 from exceptions import ValidationException
 
@@ -110,7 +112,6 @@ def validate_documents(stage_dir, filename_mime_dict):
         full_path = join(stage_dir, file)
         ext = pathlib.Path(full_path).suffix
         if isfile(full_path):
-            print(full_path)
             with open(full_path, 'rb') as stream:
                 content = stream.read(128)
                 info = fleep.get(content)
@@ -122,7 +123,14 @@ def validate_documents(stage_dir, filename_mime_dict):
                 # print('File extension:', info.extension[0])
                 # print('MIME type:', info.mime[0]) 
 
-    # TODO add virus scanning and file validation using magic
+    # TODO this code is temporary
+    command="""
+        docker run -it --rm --name clamscan --mount type=bind,source={},target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan  /scandir
+    """.format(stage_dir)
+    result = subprocess.run(command, shell=True, stderr=STDOUT, stdout=PIPE, text=True, check=True)
+    print(result.stdout)
+    # logging.getLogger().info("Scan result: ", result.stdout)
+    # os.system(command)
 
 def ingest_tx(cnx, minio, bucket, payload):
     connection = cnx.get_connection()

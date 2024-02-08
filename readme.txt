@@ -54,3 +54,18 @@ echo 'DELETE FROM TX'| mysql -h 127.0.0.1 -u docriver -p docriver
 
 # Access the data
 mysql -h 127.0.0.1 -u docriver -p docriver
+
+#######################################################
+# Virus Scan
+#######################################################
+mkdir -p $HOME/storage/clamav/sockets
+mkdir -p $HOME/storage/clamav/signaturedb
+chmod -R a+rwx $HOME/storage/clamav/sockets $HOME/storage/clamav/signaturedb
+
+# Virus scanner with clamav server and clamdscan client
+docker run -it --rm --name clamav -p 3310:3310 --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav --mount type=bind,source=$HOME/storage/clamav/sockets/,target=/tmp/ clamav/clamav:stable_base
+
+docker run -it --rm --name clamdscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --mount type=bind,source=$HOME/storage/clamav/sockets/,target=/tmp clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout /scandir/cheetah
+
+# Virus scanner with clamscan - this does not require server but it likely to be slower
+docker run -it --rm --name clamscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan /scandir/cheetah
