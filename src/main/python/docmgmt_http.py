@@ -9,7 +9,7 @@ import os
 import shutil
 import json
 import uuid
-import mimetypes
+import clamd
 
 from exceptions import ValidationException
 from document_ingest import validate_manifest, preprocess_manifest, ingest_tx, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form
@@ -34,6 +34,11 @@ def init_obj_store():
     minio = Minio(args.objUrl, secure=False,
         access_key=args.objAccessKey,
         secret_key=args.objSecretKey)
+    
+def init_virus_scanner():
+    global clamscanner
+    # TODO pass host, port from args : host='127.0.0.1', port=3310, timeout=None
+    clamscanner = clamd.ClamdNetworkSocket()
 
 def parse_args():
     global args
@@ -96,7 +101,7 @@ def ingest(payload):
         validate_manifest(payload)
         preprocess_manifest(payload)
         filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFileMount, payload)
-        validate_documents(stage_dir, filename_mime_dict)
+        validate_documents(clamscanner, stage_dir, filename_mime_dict)
         return ingest_tx(cnx, minio, args.bucket, payload)
     finally:
         if os.path.isdir(stage_dir):
@@ -124,7 +129,7 @@ def upload_file():
         preprocess_manifest(payload)
         os.makedirs(stage_dir)
         filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
-        validate_documents(stage_dir, filename_mime_dict)
+        validate_documents(clamscanner, stage_dir, filename_mime_dict)
         tx_id = ingest_tx(cnx, minio, args.bucket, payload)
         return "txId: {}".format(tx_id), 'text/html'
     finally:
@@ -138,6 +143,7 @@ if __name__ == '__main__':
 
     init_db()
     init_obj_store()
+    init_virus_scanner()
 
     app.run(debug=True)
 

@@ -4,7 +4,7 @@
 docker network create dl
 
 # Install python dependencies
-pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep
+pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep clamd
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
@@ -65,4 +65,5 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 mkdir -p $HOME/storage/clamav/signaturedb
 chmod -R a+rwx $HOME/storage/clamav/signaturedb
 
+# clamscan
 docker run -it --rm --network dl --name clamscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan /scandir/<DIR_TOSCAN>

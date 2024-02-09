@@ -14,6 +14,7 @@ from os.path import isfile, join
 import json
 import subprocess
 from subprocess import PIPE, STDOUT
+import clamd
 
 from exceptions import ValidationException
 
@@ -107,30 +108,40 @@ def stage_documents_from_form(request, stage_dir, payload):
         filename_mime_dict[staged_filename] = document['content']['mimeType']
     return filename_mime_dict
 
-def validate_documents(stage_dir, filename_mime_dict):
+def validate_documents(clamscanner, stage_dir, filename_mime_dict):
     for file in listdir(stage_dir):
         full_path = join(stage_dir, file)
-        ext = pathlib.Path(full_path).suffix
         if isfile(full_path):
+            if mimetypes.guess_type(full_path)[0].startswith('text'):
+                # Skip for text file. TODO The way we detect it here is not great. Improve text file detection
+                continue
+            # For binary files, use magic to detect file types
             with open(full_path, 'rb') as stream:
+                ext = pathlib.Path(full_path).suffix
                 content = stream.read(128)
                 info = fleep.get(content)
                 if not info.extension_matches(ext[1:]):
-                    raise ValidationException("Magic mismatch for extension in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                     raise ValidationException("Magic mismatch for extension in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
                 if not info.mime_matches(filename_mime_dict[full_path]):
-                    raise ValidationException("Magic mismatch for mimeType in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                     raise ValidationException("Magic mismatch for mimeType in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
                 # print('Type:', info.type)
                 # print('File extension:', info.extension[0])
                 # print('MIME type:', info.mime[0]) 
 
     # TODO this code is temporary
-    command="""
-        docker run -it --rm --name clamdscan --network dl --mount type=bind,source={},target=/scandir --mount type=bind,source=$HOME/git/docriver/src/test/conf/clam.remote.conf,target=/conf/clam.remote.conf  clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout -c /conf/clam.remote.conf /scandir
-    """.format(stage_dir)
-    result = subprocess.run(command, shell=True, stderr=STDOUT, stdout=PIPE, text=True, check=True)
-    print(result.stdout)
+    # command="""
+    #    docker run -it --rm --name clamdscan --network dl --mount type=bind,source={},target=/scandir --mount type=bind,source=$HOME/git/docriver/src/test/conf/# clam.remote.conf,target=/conf/clam.remote.conf  clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout -c /conf/clam.remote.conf /scandir
+    # """.format(stage_dir)
+    # result = subprocess.run(command, shell=True, stderr=STDOUT, stdout=PIPE, text=True, check=True)
+    # print(result.stdout)
     # logging.getLogger().info("Scan result: ", result.stdout)
-    # os.system(command)
+    # os.system(command) 
+
+    # TODO remove /scandir hard-coding   
+    result = clamscanner.scan(join('/scandir', pathlib.Path(stage_dir).name))
+    for kv in result.items():
+        if kv[1][0] != 'OK':
+            raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))
 
 def ingest_tx(cnx, minio, bucket, payload):
     connection = cnx.get_connection()
