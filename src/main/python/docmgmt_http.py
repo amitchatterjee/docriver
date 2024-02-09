@@ -36,9 +36,8 @@ def init_obj_store():
         secret_key=args.objSecretKey)
     
 def init_virus_scanner():
-    global clamscanner
-    # TODO pass host, port from args : host='127.0.0.1', port=3310, timeout=None
-    clamscanner = clamd.ClamdNetworkSocket()
+    global scanner
+    scanner = clamd.ClamdNetworkSocket(host=args.scanHost, port=args.scanPort)
 
 def parse_args():
     global args
@@ -57,6 +56,10 @@ def parse_args():
     parser.add_argument("--dbUser", help="Database user name", default='docriver')
     parser.add_argument("--dbPassword", help="Database password", default='docriver')
     parser.add_argument("--dbDatabase", help="Database name", default='docriver')
+
+    parser.add_argument("--scanHost", help="Document virus checker hostname", default='127.0.0.1')
+    parser.add_argument("--scanPort", type=int, help="Document virus checker port number", default=3310)
+    parser.add_argument("--scannerFileMount", help="Mount point for the untrusted area in the scanner server", default='/scandir')
 
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
 
@@ -101,13 +104,13 @@ def ingest(payload):
         validate_manifest(payload)
         preprocess_manifest(payload)
         filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFileMount, payload)
-        validate_documents(clamscanner, stage_dir, filename_mime_dict)
+        validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
         return ingest_tx(cnx, minio, args.bucket, payload)
     finally:
         if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
 
-@app.route('/rest/document', methods=['POST', 'PUT'])
+@app.route('/rest/document', methods=['POST'])
 @accept('application/json')
 def ingest_json():
     tx_id = ingest(request.json)
@@ -129,7 +132,7 @@ def upload_file():
         preprocess_manifest(payload)
         os.makedirs(stage_dir)
         filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
-        validate_documents(clamscanner, stage_dir, filename_mime_dict)
+        validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
         tx_id = ingest_tx(cnx, minio, args.bucket, payload)
         return "txId: {}".format(tx_id), 'text/html'
     finally:

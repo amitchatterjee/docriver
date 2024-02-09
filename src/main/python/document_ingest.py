@@ -108,7 +108,7 @@ def stage_documents_from_form(request, stage_dir, payload):
         filename_mime_dict[staged_filename] = document['content']['mimeType']
     return filename_mime_dict
 
-def validate_documents(clamscanner, stage_dir, filename_mime_dict):
+def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
     for file in listdir(stage_dir):
         full_path = join(stage_dir, file)
         if isfile(full_path):
@@ -137,8 +137,8 @@ def validate_documents(clamscanner, stage_dir, filename_mime_dict):
     # logging.getLogger().info("Scan result: ", result.stdout)
     # os.system(command) 
 
-    # TODO remove /scandir hard-coding   
-    result = clamscanner.scan(join('/scandir', pathlib.Path(stage_dir).name))
+    # This assumes that the staging area is created just below the untrusted filesystem mount
+    result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
     for kv in result.items():
         if kv[1][0] != 'OK':
             raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))
