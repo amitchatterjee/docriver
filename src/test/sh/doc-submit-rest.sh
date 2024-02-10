@@ -4,7 +4,6 @@ realm=p123456
 mime_type="text/plain"
 tx_id=$(date +%s)
 doc_id=$(uuidgen -t)
-doc_version=$(date +%s)
 input_file=
 doc_type='medical-record'
 resource_type='claim'
@@ -14,15 +13,15 @@ command=submit
 realm=p123456
 file_volume=
 server_url=http://localhost:5000/rest/document
+replaces_doc_id=
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
     -m <MIME_TYPE>: mime type. Default: $mime_type
     -t <TX_ID>: transaction id. Default (generated from timestamp): $tx_id
     -d <DOC_ID>: document id. Default (generated from uuid): $doc_id
-    -v <VERSION>: document version number. Default (generated from timestap): $doc_version
     -f <FILE_PATH>: input file - Mandatory
     -y <DOC_TYPE>: document type. Default: $doc_type
     -r <REF_RESOURCE_TYPE>: reference resource type. Default: $resource_type
@@ -30,6 +29,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -p <REF_RESOURCE_DESCRIPTION>: reference resource description. Default: $resource_description
     -b <FILE_VOLUME_BASE>: copy document to file volume and use path as opposed to data in the document/content section of the message. If not specified, inline data is assumed
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
+    -l <REPLACES_DOC_ID> if this document is replacing another document
 EOF
 )
 
@@ -43,9 +43,6 @@ while getopts $OPTIONS opt; do
       ;;
     d)
       doc_id="$OPTARG"
-      ;;
-    v)
-      doc_version="$OPTARG"
       ;;
     f)
       input_file="$OPTARG"
@@ -67,6 +64,9 @@ while getopts $OPTIONS opt; do
       ;;
     u)
       server_url="$OPTARG"
+      ;;
+    l)
+      replaces_doc_id="$OPTARG"
       ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
@@ -101,6 +101,11 @@ EOF
 )
 fi
 
+replaces_content=
+if [ ! -z "$replaces_doc_id" ]; then
+  replaces_content="\"replaces\": \"$replaces_doc_id\","
+fi
+
 cat << EOF > /tmp/docriver-rest.json
 {
     "txId": "${tx_id}",
@@ -108,8 +113,9 @@ cat << EOF > /tmp/docriver-rest.json
     "documents": [
         {
             "documentId": "${doc_id}",
-            "version": ${doc_version},
             "type": "${doc_type}",
+
+            $replaces_content
 
             "tags": {
               "tag1": "value1"

@@ -4,7 +4,6 @@
     "documents": [
         {
             "documentId": "123456789",
-            "version": 1,
             "type": "medical-record",
 
             "tags": {},
@@ -12,10 +11,7 @@
                 "key1": "value1"
             },
 
-            "replaces": {
-                "documentId": "xyx",
-                "version": 1
-            },
+            "replaces": "xyx",
 
             "content": {
                 "mimeType": "text/plain",

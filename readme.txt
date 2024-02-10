@@ -55,8 +55,9 @@ $HOME/git/docriver/src/test/sh/docs-submit-form.sh -f ~/cheetah
 $HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -b $HOME/storage/docriver/raw
 
 # Cleanup
+mc ls --recursive docriver/docriver/p123456
 mc rm --recursive --force docriver/docriver/p123456
-echo 'DELETE FROM TX'| mysql -h 127.0.0.1 -u docriver -p docriver
+echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p docriver
 
 # Access the data
 mysql -h 127.0.0.1 -u docriver -p docriver

@@ -75,8 +75,8 @@ manifest=$(for file in $files; do
   file_name_no_ext=${file_name%.*}
   extension="${file_name##*.}"
   jq -n --arg fname "$file_name" '{path: ("/" + $fname)}' \
-    | jq -n --arg docid "$file_name_no_ext" --arg version "$ts" --arg type "$extension" \
-        '{documentId: $docid, version: $version, type: $type, content: inputs}'
+    | jq -n --arg docid "${file_name_no_ext}/${ts}" --arg type "$extension" \
+        '{documentId: $docid, type: $type, content: inputs}'
 done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
 )
