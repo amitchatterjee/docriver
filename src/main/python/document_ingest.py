@@ -183,9 +183,9 @@ def submit_tx(cnx, minio, bucket, payload):
                 if 'replaces' in document:
                     # Reference to an existing document
                     cursor.execute("""
-                        SELECT ID FROM DOC WHERE DOCUMENT = %(replaces)s
+                        SELECT ID FROM DOC WHERE DOCUMENT = %(replace)s
                         """, 
-                        {"replaces": document['replaces']})
+                        {"replace": document['replaces']})
                     row = cursor.fetchone()
                     if not row:
                         raise ValidationException('Non-existent replacement document')
@@ -224,19 +224,22 @@ def submit_tx(cnx, minio, bucket, payload):
                         document['properties'] if 'properties' in document else None)
             else:
                 # Reference to an existing document
-                cursor.execute(("""
-                    SELECT ID FROM DOC where DOC = %s"""), 
-                    (document['documentId']))
+                cursor.execute("""
+                    SELECT ID
+                    FROM DOC
+                    WHERE DOCUMENT = %(doc)s 
+                    """, 
+                    {'doc': document['documentId']})
                 row = cursor.fetchone()
                 if not row:
                     raise ValidationException('Non-existent document')
-                doc_id = row[0] 
+                doc_id = row[0]
 
             cursor.execute(("""
-                INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID) 
-                VALUES(%s, %s, %s) 
+                INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
+                VALUES(%s, %s, %s, %s) 
                 """), 
-                ('INGESTION', 'I', doc_id))
+                ('INGESTION', 'I', doc_id, tx_id))
 
         cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 
                   VALUES(%s, %s, %s) 

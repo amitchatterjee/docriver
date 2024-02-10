@@ -43,21 +43,21 @@ python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFileMount $HOME/s
 # Document ingestion using the docriver CLI tool. Use -h for options
 
 # Inline document ingestion
-$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f ~/Downloads/wakemed-payment.pdf
 
 # Ingestion from raw file mount
-$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -b $HOME/storage/docriver/raw
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -e false -b $HOME/storage/docriver/raw
 
 # Multipart form file ingestion
 $HOME/git/docriver/src/test/sh/docs-submit-form.sh -f ~/cheetah 
 
 # Virus scan failure
-$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -b $HOME/storage/docriver/raw
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -e false -b $HOME/storage/docriver/raw
 
 # Cleanup
 mc ls --recursive docriver/docriver/p123456
 mc rm --recursive --force docriver/docriver/p123456
-echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p docriver
+echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p${DOCRIVER_MYSQL_PASSWORD} docriver
 
 # Access the data
 mysql -h 127.0.0.1 -u docriver -p docriver

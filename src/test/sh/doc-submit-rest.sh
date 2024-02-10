@@ -14,15 +14,16 @@ realm=p123456
 file_volume=
 server_url=http://localhost:5000/rest/document
 replaces_doc_id=
+inline=true
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:e:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
     -m <MIME_TYPE>: mime type. Default: $mime_type
     -t <TX_ID>: transaction id. Default (generated from timestamp): $tx_id
     -d <DOC_ID>: document id. Default (generated from uuid): $doc_id
-    -f <FILE_PATH>: input file - Mandatory
+    -f <FILE_PATH>: input file to send. If not specified, the document specified by the -d option must exist
     -y <DOC_TYPE>: document type. Default: $doc_type
     -r <REF_RESOURCE_TYPE>: reference resource type. Default: $resource_type
     -i <REF_RESOURCE_ID>: reference resource id. Default: $resource_id
@@ -30,6 +31,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -b <FILE_VOLUME_BASE>: copy document to file volume and use path as opposed to data in the document/content section of the message. If not specified, inline data is assumed
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
     -l <REPLACES_DOC_ID> if this document is replacing another document
+    -e <true/false> if the file is sent as inline content or copied to a volume. Default: $inline
 EOF
 )
 
@@ -68,6 +70,9 @@ while getopts $OPTIONS opt; do
     l)
       replaces_doc_id="$OPTARG"
       ;;
+    e) 
+      inline="$OPTARG"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -76,34 +81,31 @@ while getopts $OPTIONS opt; do
 done
 shift "$(($OPTIND -1))"
 
-if [ -z "$input_file" ]; then
-    echo "Input file must be specified"
-    exit 1
-fi
-
 file_content=
 mime_content=
-if [ -z "$file_volume" ]; then
-  raw=$(cat $input_file  | base64 -w 0)
-  file_content=$(cat << EOF
-"encoding": "base64",
-"inline": "$raw"
-EOF
-)
-  mime_content="\"mimeType\": \"${mime_type}\","
-else
-  # Copy the file to the storage area
-  mkdir -p "${file_volume}/${realm}/"
-  cp "$input_file" "${file_volume}/${realm}/"
-  file_content=$(cat << EOF
-"path": "$(basename $input_file)"
-EOF
-)
-fi
-
 replaces_content=
-if [ ! -z "$replaces_doc_id" ]; then
-  replaces_content="\"replaces\": \"$replaces_doc_id\","
+if [ ! -z "$input_file" ]; then
+  if [ "$inline" == "true" ]; then
+    raw=$(cat $input_file  | base64 -w 0)
+    file_content=$(cat << EOF
+  "encoding": "base64",
+  "inline": "$raw"
+EOF
+)
+    mime_content="\"mimeType\": \"${mime_type}\","
+  elif [ ! -z "$file_volume" ]; then
+    # Copy the file to the storage area
+    mkdir -p "${file_volume}/${realm}/"
+    cp "$input_file" "${file_volume}/${realm}/"
+    file_content=$(cat << EOF
+  "path": "$(basename $input_file)"
+EOF
+  )
+  fi
+
+  if [ ! -z "$replaces_doc_id" ]; then
+    replaces_content="\"replaces\": \"$replaces_doc_id\","
+  fi
 fi
 
 cat << EOF > /tmp/docriver-rest.json
@@ -142,6 +144,7 @@ cat << EOF > /tmp/docriver-rest.json
     ]
 }
 EOF
+
 
 curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/docriver-rest.json" "$server_url"
 echo

@@ -18,7 +18,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
     -t <TX_ID>: transaction id. Default (generated from timestamp): $tx_id
-    -f <INPUT_FOLDER>: input folder - Mandatory
+    -f <INPUT_FILE>: input folder - Mandatory
     -x <FILE_SELECTION_REGEX>: regex to select files from folder. Default: $file_selection_regex
     -r <REF_RESOURCE_TYPE>: reference resource type. Default: $resource_type
     -i <REF_RESOURCE_ID>: reference resource id. Default: $resource_id
@@ -82,6 +82,8 @@ done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, 
 )
 
 echo $manifest > /tmp/manifest.json
+
+exit
 
 params=()
 params+=(-F "files=@/tmp/manifest.json")
