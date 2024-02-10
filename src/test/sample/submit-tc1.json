@@ -3,7 +3,6 @@
     "realm": "p123456",
     "documents": [
         {
-            "operation": "I",
             "documentId": "123456789",
             "version": 1,
             "type": "medical-record",

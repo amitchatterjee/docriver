@@ -8,7 +8,6 @@ file_selection_regex=".+\.(zip|png|jpg|jpeg|xml|json|pdf)"
 resource_type='claim'
 resource_id='123456789'
 resource_description='blah blah blah'
-operation=i
 command=submit
 realm=p123456
 server_url=http://localhost:5000/form/document
@@ -77,7 +76,7 @@ manifest=$(for file in $files; do
   extension="${file_name##*.}"
   jq -n --arg fname "$file_name" '{path: ("/" + $fname)}' \
     | jq -n --arg docid "$file_name_no_ext" --arg version "$ts" --arg type "$extension" \
-        '{operation: "I", documentId: $docid, version: $version, type: $type, content: inputs}'
+        '{documentId: $docid, version: $version, type: $type, content: inputs}'
 done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
 )

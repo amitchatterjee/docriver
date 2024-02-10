@@ -143,7 +143,7 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
         if kv[1][0] != 'OK':
             raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))
 
-def ingest_tx(cnx, minio, bucket, payload):
+def submit_tx(cnx, minio, bucket, payload):
     connection = cnx.get_connection()
     cursor = connection.cursor()
     try:
@@ -174,11 +174,10 @@ def ingest_tx(cnx, minio, bucket, payload):
             doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
 
             cursor.execute(("""
-                    INSERT INTO DOC (OPERATION, DOC_ID, VERSION, TYPE, TX_ID,
-                    MIME_TYPE, LOCATION_URL, REPLACES_DOC_ID, REPLACES_VERSION) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    INSERT INTO DOC (DOC_ID, VERSION, TYPE, TX_ID,
+                    MIME_TYPE, LOCATION_URL, REPLACES_DOC_ID, REPLACES_VERSION) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                     """), 
-                (document['operation'] if 'operation' in document else None, 
-                document['documentId'], 
+                (document['documentId'], 
                 document['version'], 
                 document['type'], 
                 tx_id, 
@@ -204,7 +203,7 @@ def ingest_tx(cnx, minio, bucket, payload):
         cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 
                   VALUES(%s, %s, %s) 
                   """), 
-                  ('INGESTION', 'C', tx_id))
+                  ('INGESTION', 'I', tx_id))
         connection.commit()
         return tx_id
     except Exception as e:

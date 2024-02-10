@@ -12,7 +12,7 @@ import uuid
 import clamd
 
 from exceptions import ValidationException
-from document_ingest import validate_manifest, preprocess_manifest, ingest_tx, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form
+from document_ingest import validate_manifest, preprocess_manifest, submit_tx, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -62,20 +62,12 @@ def parse_args():
     parser.add_argument("--scannerFileMount", help="Mount point for the untrusted area in the scanner server", default='/scandir')
 
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
+    parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args()
     # TODO add validation
 
-@app.errorhandler(ValidationException)
-def handle_validation_error(e):
-    return str(e), 400
-
-@app.errorhandler(Exception)
-def handle_internal_error(e):
-    logging.error(e, exc_info=True)
-    return str(e), 500
-
-def db_health():
+def db_healthcheck():
     connection = cnx.get_connection()
     cursor = connection.cursor()
     try:
@@ -88,33 +80,26 @@ def db_health():
         cursor.close()
         connection.close()
 
-@app.route('/document/health', methods=['GET'])
-def get_health():
-    db_healthy = db_health()
-    minio_healthy = minio.bucket_exists(args.bucket)
-    healthy_overall = db_healthy and minio_healthy
-    return jsonify({'status': 'UP' if healthy_overall else 'DOWN', 
-                    'db': db_healthy, 'minio': minio_healthy})
+def health_status(up):
+    return "UP" if up else "DOWN"
 
-def ingest(payload):
+@app.route('/rest/document', methods=['POST'])
+@accept('application/json')
+def submit_new_tx_rest():
+    payload = request.json
     stage_dir = stage_dirname(args.untrustedFileMount)
     try:
-        os.makedirs(stage_dir, exist_ok=True)
+        os.makedirs(stage_dir)
         logging.info("Received REST ingestion request: {}/{}".format(payload['realm'], payload['txId']))
         validate_manifest(payload)
         preprocess_manifest(payload)
         filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFileMount, payload)
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        return ingest_tx(cnx, minio, args.bucket, payload)
+        tx_id = submit_tx(cnx, minio, args.bucket, payload)
+        return jsonify({'status': 'ok', 'ref': tx_id}), {'Content-Type': 'application/json'}
     finally:
         if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
-
-@app.route('/rest/document', methods=['POST'])
-@accept('application/json')
-def ingest_json():
-    tx_id = ingest(request.json)
-    return jsonify({'status': 'ok', 'ref': tx_id}), {'Content-Type': 'application/json'}
 
 @app.route('/favicon.ico')
 def favicon():
@@ -123,7 +108,7 @@ def favicon():
 
 @app.route('/form/document', methods=['POST'])
 @accept('text/html')
-def upload_file():
+def submit_new_tx_form():
     stage_dir = stage_dirname(args.untrustedFileMount)
     try:
         payload = get_payload_from_form(request)
@@ -133,20 +118,38 @@ def upload_file():
         os.makedirs(stage_dir)
         filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        tx_id = ingest_tx(cnx, minio, args.bucket, payload)
+        tx_id = submit_tx(cnx, minio, args.bucket, payload)
         return "txId: {}".format(tx_id), 'text/html'
     finally:
          if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
 
+@app.route('/health', methods=['GET'])
+def get_health():
+    db_healthy = db_healthcheck()
+    minio_healthy = minio.bucket_exists(args.bucket)
+    scanner_healthy = scanner.ping() == "PONG"
+    healthy_overall = db_healthy and minio_healthy and scanner_healthy
+    return jsonify({'system': health_status(healthy_overall), 
+                'db': health_status(db_healthy), 
+                'minio': health_status(minio_healthy), 
+                'scanner': health_status(scanner_healthy)})
+
+@app.errorhandler(ValidationException)
+def handle_validation_error(e):
+    return str(e), 400
+
+@app.errorhandler(Exception)
+def handle_internal_error(e):
+    logging.error(e, exc_info=True)
+    return str(e), 500
+
 if __name__ == '__main__':
     parse_args()
-
     logging.getLogger().setLevel(args.log)
-
     init_db()
     init_obj_store()
     init_virus_scanner()
 
-    app.run(debug=True)
+    app.run(debug=args.debug)
 

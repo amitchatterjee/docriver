@@ -10,7 +10,6 @@ doc_type='medical-record'
 resource_type='claim'
 resource_id='123456789'
 resource_description='blah blah blah'
-operation=i
 command=submit
 realm=p123456
 file_volume=
@@ -108,7 +107,6 @@ cat << EOF > /tmp/docriver-rest.json
     "realm": "${realm}",
     "documents": [
         {
-            "operation": "I",
             "documentId": "${doc_id}",
             "version": ${doc_version},
             "type": "${doc_type}",

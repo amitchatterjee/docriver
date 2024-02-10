@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS TX_EVENT (
     ID INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     EVENT VARCHAR(50) NOT NULL,
     EVENT_TIME DATETIME NOT NULL DEFAULT NOW(),
-    -- In progress: P, Completed: C, Failed: F, etc.
+    -- Ingested: I, Processing in progress: P, Processing completed: C, Processing failed: F, Transaction deleted: D, Transaction replaced: R,  etc.
     STATUS CHAR(1) NOT NULL,
     DESCRIPTION VARCHAR(200),
 
@@ -66,7 +66,6 @@ CREATE TABLE IF NOT EXISTS REF_PROPERTY (
 CREATE TABLE IF NOT EXISTS DOC (
     ID INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
 
-    OPERATION CHAR(1) DEFAULT 'I',
     DOC_ID VARCHAR(50) NOT NULL,
     VERSION INT,
     TYPE VARCHAR(25) NOT NULL,
@@ -89,7 +88,7 @@ CREATE TABLE IF NOT EXISTS DOC_EVENT (
     ID INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
     EVENT VARCHAR(50) NOT NULL,
     EVENT_TIME DATETIME NOT NULL DEFAULT NOW(),
-    -- In progress: P, Completed: C, Failed: F, etc.
+    -- Processing in progress: P, Processing completed: C, Processing failed: F, Document deleted: D, etc.
     STATUS CHAR(1) NOT NULL,
     DESCRIPTION VARCHAR(200),
 
