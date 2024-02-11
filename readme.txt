@@ -46,13 +46,13 @@ python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFileMount $HOME/s
 $HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f ~/Downloads/wakemed-payment.pdf
 
 # Ingestion from raw file mount
-$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f ~/Downloads/wakemed-payment.pdf -e false -b $HOME/storage/docriver/raw
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f ~/Downloads/wakemed-payment.pdf 
 
 # Multipart form file ingestion
 $HOME/git/docriver/src/test/sh/docs-submit-form.sh -f ~/cheetah 
 
 # Virus scan failure
-$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -e false -b $HOME/storage/docriver/raw
+$HOME/git/docriver/src/test/sh/doc-submit-rest.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -b $HOME/storage/docriver/raw
 
 # Cleanup
 mc ls --recursive docriver/docriver/p123456

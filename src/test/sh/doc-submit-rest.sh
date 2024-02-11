@@ -14,9 +14,8 @@ realm=p123456
 file_volume=
 server_url=http://localhost:5000/rest/document
 replaces_doc_id=
-inline=true
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:e:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -31,7 +30,6 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -b <FILE_VOLUME_BASE>: copy document to file volume and use path as opposed to data in the document/content section of the message. If not specified, inline data is assumed
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
     -l <REPLACES_DOC_ID> if this document is replacing another document
-    -e <true/false> if the file is sent as inline content or copied to a volume. Default: $inline
 EOF
 )
 
@@ -70,9 +68,6 @@ while getopts $OPTIONS opt; do
     l)
       replaces_doc_id="$OPTARG"
       ;;
-    e) 
-      inline="$OPTARG"
-      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -85,7 +80,7 @@ file_content=
 mime_content=
 replaces_content=
 if [ ! -z "$input_file" ]; then
-  if [ "$inline" == "true" ]; then
+  if [ -z "$file_volume" ]; then
     raw=$(cat $input_file  | base64 -w 0)
     file_content=$(cat << EOF
   "encoding": "base64",
@@ -93,7 +88,7 @@ if [ ! -z "$input_file" ]; then
 EOF
 )
     mime_content="\"mimeType\": \"${mime_type}\","
-  elif [ ! -z "$file_volume" ]; then
+  else
     # Copy the file to the storage area
     mkdir -p "${file_volume}/${realm}/"
     cp "$input_file" "${file_volume}/${realm}/"

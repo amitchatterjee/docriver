@@ -57,10 +57,6 @@ def put_object(minio, bucket, doc_key, stream, mime_type, tags, properties):
     minio.put_object(bucket, doc_key, stream, 
         length=-1, part_size=10*1024*1024, 
         content_type=mime_type, tags=doc_tags, metadata=properties)
-
-
-# doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
-# document['dr:docKey'] = doc_key
     
 def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
     filename_mime_dict = {}
@@ -148,8 +144,23 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
         if kv[1][0] != 'OK':
             raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))
 
-def submit_tx(cnx, minio, bucket, payload):
-    connection = cnx.get_connection()
+def format_doc_key(payload, document):
+    ext = pathlib.Path(document['dr:stageFilename']).suffix
+    return "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
+
+def write_to_obj_store(minio, bucket, payload):
+    documents = payload['documents']
+    for document in documents: 
+        if 'dr:stageFilename' in document:
+            # TODO add more dr:tags to store documentId, etc.
+            # TODO the code below is not transactional. That means if a file put fails, the minio storage will be in a messed up state. We can perform cleanups since we have the references in the metadata store. A better way to do this is to tar the files and have minio extract it - https://blog.min.io/minio-optimizes-small-objects/
+            with io.FileIO(document['dr:stageFilename']) as stream:
+                    put_object(minio, bucket, format_doc_key(payload, document), stream, 
+                        document['content']['mimeType'],
+                        document['tags'] if 'tags' in document else None,
+                        document['properties'] if 'properties' in document else None)
+                    
+def write_metadata(connection, bucket, payload):
     cursor = connection.cursor()
     try:
         cursor.execute(("INSERT INTO TX (TX, REALM) VALUES (%s, %s)"), (payload['txId'], payload['realm']))
@@ -176,12 +187,11 @@ def submit_tx(cnx, minio, bucket, payload):
         documents = payload['documents']
         for document in documents: 
             if 'dr:stageFilename' in document:
-                ext = pathlib.Path(document['dr:stageFilename']).suffix
-                doc_key = "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
-
                 replaces_doc_id = None
                 if 'replaces' in document:
                     # Reference to an existing document
+
+                    # TODO if the document has already been replaced, we should not allow a replacement
                     cursor.execute("""
                         SELECT ID FROM DOC WHERE DOCUMENT = %(replace)s
                         """, 
@@ -212,16 +222,7 @@ def submit_tx(cnx, minio, bucket, payload):
                     INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL)
                     VALUES(%s, %s, %s)
                     """), 
-                    (doc_id, tx_id, "minio:{}:{}".format(bucket, doc_key)))
-
-                # Write the document to the object store
-                # TODO add more dr:tags to store documentId, etc.
-                # TODO move this to the end of this method as any failures will lead to a dangling document in the object store. We cannot really prevent this if this block of code is moved to the bottom, but can reduce the possibilty
-                with io.FileIO(document['dr:stageFilename']) as stream:
-                    put_object(minio, bucket, doc_key, stream, 
-                        document['content']['mimeType'],
-                        document['tags'] if 'tags' in document else None,
-                        document['properties'] if 'properties' in document else None)
+                    (doc_id, tx_id, "minio:{}:{}".format(bucket, format_doc_key(payload, document))))
             else:
                 # Reference to an existing document
                 cursor.execute("""
@@ -239,20 +240,17 @@ def submit_tx(cnx, minio, bucket, payload):
                 INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
                 VALUES(%s, %s, %s, %s) 
                 """), 
-                ('INGESTION', 'I', doc_id, tx_id))
+                ('INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
+                'I' if 'dr:stageFilename' in document else 'J', 
+                doc_id, tx_id))
 
         cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 
                   VALUES(%s, %s, %s) 
                   """), 
                   ('INGESTION', 'I', tx_id))
-        connection.commit()
         return tx_id
-    except Exception as e:
-        connection.rollback()
-        raise e
     finally:
         cursor.close()
-        connection.close()
 
 # from datetime import datetime, timezone
 # from minio.commonconfig import REPLACE, CopySource

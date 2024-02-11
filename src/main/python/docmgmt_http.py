@@ -12,7 +12,7 @@ import uuid
 import clamd
 
 from exceptions import ValidationException
-from document_ingest import validate_manifest, preprocess_manifest, submit_tx, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form
+from document_ingest import validate_manifest, preprocess_manifest, write_metadata, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form, write_to_obj_store
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -21,8 +21,8 @@ def stage_dirname(untrusted_file_mount):
     return "{}/{}".format(untrusted_file_mount, uuid.uuid1())
 
 def init_db():
-    global cnx
-    cnx = mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', pool_size=args.dbPoolSize,
+    global connection_pool
+    connection_pool = mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', pool_size=args.dbPoolSize,
             user=args.dbUser, password=args.dbPassword,
             host=args.dbHost,
             port=args.dbPort,
@@ -68,7 +68,7 @@ def parse_args():
     # TODO add validation
 
 def db_healthcheck():
-    connection = cnx.get_connection()
+    connection = connection_pool.get_connection()
     cursor = connection.cursor()
     try:
         cursor.execute(('SELECT 1 FROM DUAL'))
@@ -88,6 +88,7 @@ def health_status(up):
 def submit_new_tx_rest():
     payload = request.json
     stage_dir = stage_dirname(args.untrustedFileMount)
+    connection = connection_pool.get_connection()
     try:
         os.makedirs(stage_dir)
         logging.info("Received REST ingestion request: {}/{}".format(payload['realm'], payload['txId']))
@@ -95,11 +96,18 @@ def submit_new_tx_rest():
         preprocess_manifest(payload)
         filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFileMount, payload)
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        tx_id = submit_tx(cnx, minio, args.bucket, payload)
+        tx_id = write_metadata(connection, args.bucket, payload)
+        write_to_obj_store(minio, args.bucket, payload)
+        connection.commit()
         return jsonify({'status': 'ok', 'ref': tx_id}), {'Content-Type': 'application/json'}
+    except Exception as e:
+        connection.rollback()
+        raise e
     finally:
         if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
+        if connection.is_connected():
+            connection.close()
 
 @app.route('/favicon.ico')
 def favicon():
@@ -110,6 +118,7 @@ def favicon():
 @accept('text/html')
 def submit_new_tx_form():
     stage_dir = stage_dirname(args.untrustedFileMount)
+    connection = connection_pool.get_connection()
     try:
         payload = get_payload_from_form(request)
         logging.info("Received FORM ingestion request: {}/{}".format(payload['realm'], payload['txId']))
@@ -118,11 +127,18 @@ def submit_new_tx_form():
         os.makedirs(stage_dir)
         filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        tx_id = submit_tx(cnx, minio, args.bucket, payload)
+        tx_id = write_metadata(connection, args.bucket, payload)
+        write_to_obj_store(minio, args.bucket, payload)
+        connection.commit()
         return "txId: {}".format(tx_id), 'text/html'
+    except Exception as e:
+        connection.rollback()
+        raise e
     finally:
-         if os.path.isdir(stage_dir):
+        if os.path.isdir(stage_dir):
             shutil.rmtree(stage_dir)
+        if connection.is_connected():
+            connection.close()
 
 @app.route('/health', methods=['GET'])
 def get_health():
