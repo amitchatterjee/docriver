@@ -30,24 +30,30 @@ def get_payload_from_form(request):
         raise ValidationException('manifest file not found and realm not specified in the form field')
     manifest = {
         'realm': request.form['realm'],
-        'txId': request.form.get('txId', default=uuid.uuid1()),
-        # only one reference is supported
-        'references': [{
-                'resourceType': request.form.get('refResourceType', default='unknown'),
-                'resourceId': request.form.get('refResourceId', default='unknown'),
-                'description': request.form.get('refResourceDescription', default='unknown'),
-            }],
-            'documents':[]
+        'txId': request.form.get('txId', default=str(uuid.uuid4())),
+        'documents':[]
     }
+
+    ref_dict = {
+        'resourceType': request.form.get('refResourceType', default=''),
+        'resourceId': request.form.get('refResourceId', default=''),
+        'description': request.form.get('refResourceDescription', default='')
+    }
+    # Remove empty fields
+    ref_dict = {k: v for k, v in ref_dict.items() if v}
+    if len(ref_dict):
+        manifest['references'] = [ref_dict]
+
     for uploaded_file in request.files.getlist('files'):
-        manifest['documents'].append({
-            'type': request.form.get('documentType', default='unknown'),
-            'documentId': "{}-{}".format(uploaded_file.filename, current_time_ms()),
+        doc = {
+            'type': request.form.get('documentType', default='UNSPECIFIED'),
+            'documentId': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
             'content': {
-                'path': uploaded_file.filename
+                'path': "/{}".format(uploaded_file.filename)
             }
-        })
-    print(manifest)
+        }
+        manifest['documents'].append(doc)
+    # print(manifest)
     return manifest
     
 
