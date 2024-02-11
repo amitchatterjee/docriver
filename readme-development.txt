@@ -32,10 +32,10 @@ mkdir -p ~/storage/docriver/raw/p123456/
 # Run components
 #######################################################
 # Start infrastructure components needed for the document repo server
-docker compose -f $HOME/git/docriver/src/main/compose/docker-compose.yml -p docriver up --detach
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
 
 # Run Document Manager Server REST
-python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted
+python $DOCRIVER_GW_HOME/server/docmgmt_http.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted
 
 #######################################################
 # Execute
@@ -43,16 +43,16 @@ python $HOME/git/docriver/src/main/python/docmgmt_http.py --rawFilesystemMount $
 # Document ingestion using the docriver CLI tool. Use -h for options
 
 # Inline document ingestion
-$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f ~/Downloads/wakemed-payment.pdf
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f ~/Downloads/wakemed-payment.pdf
 
 # Ingestion from raw file mount
-$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f ~/Downloads/wakemed-payment.pdf 
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f ~/Downloads/wakemed-payment.pdf 
 
 # Multipart form file ingestion
-$HOME/git/docriver/src/test/sh/bulk-docs-submit.sh -f ~/cheetah -y "Flickr images"
+$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f ~/cheetah -y "Flickr images"
 
 # Virus scan failure
-$HOME/git/docriver/src/test/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $HOME/git/docriver/src/test/sample/clamav-testfile.txt -b $HOME/storage/docriver/raw
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/test/sample/infected.txt -b $HOME/storage/docriver/raw
 
 # Cleanup
 mc ls --recursive docriver/docriver/p123456
