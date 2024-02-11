@@ -52,7 +52,7 @@ $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receip
 $DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f ~/cheetah -y "Flickr images"
 
 # Virus scan failure
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/test/sample/infected.txt -b $HOME/storage/docriver/raw
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/misc/sample/infected.txt -b $HOME/storage/docriver/raw
 
 # Cleanup
 mc ls --recursive docriver/docriver/p123456

@@ -12,7 +12,7 @@ resource_description='blah blah blah'
 command=submit
 realm=p123456
 file_volume=
-server_url=http://localhost:5000/rest/document
+server_url=http://localhost:5000/tx
 replaces_doc_id=
 
 OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:"

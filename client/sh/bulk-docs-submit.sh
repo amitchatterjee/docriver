@@ -10,7 +10,7 @@ resource_id='123456789'
 resource_description='blah blah blah'
 command=submit
 realm=p123456
-server_url=http://localhost:5000/form/document
+server_url=http://localhost:5000/tx
 verbose=
 doc_type="General"
 

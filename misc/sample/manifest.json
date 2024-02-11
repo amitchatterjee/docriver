@@ -3,30 +3,22 @@
     "realm": "p123456",
     "documents": [
         {
-            "operation": "I",
             "documentId": "555555555",
-            "version": 1,
-            "type": "medical-record",
+            "type": "sample",
 
             "tags": {},
             "properties": {
                 "key1": "value1"
             },
 
-            "replaces": {
-                "documentId": "xyx",
-                "version": 1
-            },
-
             "content": {
-                "mimeType": "text/plain",
-                "path": "/wakemed-payment.pdf"
+                "path": "/sample.pdf"
             }
         }
     ],
     "references": [
         {
-            "resourceType": "claim/etc.",
+            "resourceType": "claim",
             "resourceId": "23456",
             "description": "",
             "properties": {

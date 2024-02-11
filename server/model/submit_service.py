@@ -13,6 +13,7 @@ from os import listdir
 from os.path import isfile, join
 import json
 from subprocess import PIPE, STDOUT
+import uuid
 
 from exceptions import ValidationException
 
@@ -22,9 +23,33 @@ def current_time_ms():
 def get_payload_from_form(request):
     for uploaded_file in request.files.getlist('files'):
         if uploaded_file.filename == 'manifest.json':
-            manifest = uploaded_file.read()
-            return json.loads(manifest)
-    raise ValidationException('manifest file not found')
+            manifest_file = uploaded_file.read()
+            return json.loads(manifest_file)
+    # if we are here, we need to manufacture a manifest provided there is a form entry for the realm
+    if 'realm' not in request.form:
+        raise ValidationException('manifest file not found and realm not specified in the form field')
+    manifest = {
+        'realm': request.form['realm'],
+        'txId': request.form.get('txId', default=uuid.uuid1()),
+        # only one reference is supported
+        'references': [{
+                'resourceType': request.form.get('refResourceType', default='unknown'),
+                'resourceId': request.form.get('refResourceId', default='unknown'),
+                'description': request.form.get('refResourceDescription', default='unknown'),
+            }],
+            'documents':[]
+    }
+    for uploaded_file in request.files.getlist('files'):
+        manifest['documents'].append({
+            'type': request.form.get('documentType', default='unknown'),
+            'documentId': "{}-{}".format(uploaded_file.filename, current_time_ms()),
+            'content': {
+                'path': uploaded_file.filename
+            }
+        })
+    print(manifest)
+    return manifest
+    
 
 def validate_manifest(payload):
     if not payload or not 'txId' in payload \
@@ -90,7 +115,7 @@ def find_matching_document(documents, filename):
         if 'content' in document and document['content']['path'] == '/' + filename:
             return document
         # else: the documentId refers to an existing document
-    raise None
+    return None
 
 def stage_documents_from_form(request, stage_dir, payload):
     filename_mime_dict = {}
