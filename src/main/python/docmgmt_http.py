@@ -47,8 +47,8 @@ def parse_args():
     parser.add_argument("--objSecretKey", help="Secret key for the object store", default='docriver-secret')
     parser.add_argument("--bucket", help="Bucket name where the documents are stored", default='docriver')
 
-    parser.add_argument("--rawFileMount", help="mount point of the shared filesystem where raw documents is stored", default='.')
-    parser.add_argument("--untrustedFileMount", help="mount point of a filesystem where untrusted files are staged for validations, virus scans, etc", default='.')
+    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading", default='.')
+    parser.add_argument("--untrustedFilesystemMount", help="mount point of a shared filesystem where untrusted files are staged for validations, virus scans, etc. This mount point must be shared with the virus scanner", default='.')
     
     parser.add_argument("--dbPoolSize", help="Connection pool size", type=int, default=5)
     parser.add_argument("--dbHost", help="Database host name", default='127.0.0.1')
@@ -87,14 +87,14 @@ def health_status(up):
 @accept('application/json')
 def submit_new_tx_rest():
     payload = request.json
-    stage_dir = stage_dirname(args.untrustedFileMount)
+    stage_dir = stage_dirname(args.untrustedFilesystemMount)
     connection = connection_pool.get_connection()
     try:
         os.makedirs(stage_dir)
         logging.info("Received REST ingestion request: {}/{}".format(payload['realm'], payload['txId']))
         validate_manifest(payload)
         preprocess_manifest(payload)
-        filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFileMount, payload)
+        filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFilesystemMount, payload)
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
         tx_id = write_metadata(connection, args.bucket, payload)
         write_to_obj_store(minio, args.bucket, payload)
@@ -117,7 +117,7 @@ def favicon():
 @app.route('/form/document', methods=['POST'])
 @accept('text/html')
 def submit_new_tx_form():
-    stage_dir = stage_dirname(args.untrustedFileMount)
+    stage_dir = stage_dirname(args.untrustedFilesystemMount)
     connection = connection_pool.get_connection()
     try:
         payload = get_payload_from_form(request)

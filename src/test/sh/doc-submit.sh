@@ -103,7 +103,7 @@ EOF
   fi
 fi
 
-cat << EOF > /tmp/docriver-rest.json
+cat << EOF > /tmp/manifest.json
 {
     "txId": "${tx_id}",
     "realm": "${realm}",
@@ -114,11 +114,8 @@ cat << EOF > /tmp/docriver-rest.json
 
             $replaces_content
 
-            "tags": {
-              "tag1": "value1"
-            },
             "properties": {
-                "key1": "value1"
+                "filename": "$(basename "$input_file")"
             },
 
             "content": {
@@ -140,8 +137,7 @@ cat << EOF > /tmp/docriver-rest.json
 }
 EOF
 
-
-curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/docriver-rest.json" "$server_url"
+curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url"
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

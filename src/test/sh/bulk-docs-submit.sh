@@ -12,8 +12,9 @@ command=submit
 realm=p123456
 server_url=http://localhost:5000/form/document
 verbose=
+doc_type="General"
 
-OPTIONS="ht:f:x:r:i:p:u:v"
+OPTIONS="ht:f:x:r:i:p:u:vy:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -24,7 +25,8 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -i <REF_RESOURCE_ID>: reference resource id. Default: $resource_id
     -p <REF_RESOURCE_DESCRIPTION>: reference resource description. Default: $resource_description
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
-    -v: for verbose and debug output 
+    -v: for verbose and debug output
+    -y <TYPE>: document type. Default: $doc_type 
 EOF
 )
 
@@ -53,6 +55,9 @@ while getopts $OPTIONS opt; do
       ;;
     v) verbose="-v --progress-bar"
       ;;
+    y)
+      doc_type="$OPTARG"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -75,15 +80,13 @@ manifest=$(for file in $files; do
   file_name_no_ext=${file_name%.*}
   extension="${file_name##*.}"
   jq -n --arg fname "$file_name" '{path: ("/" + $fname)}' \
-    | jq -n --arg docid "${file_name_no_ext}/${ts}" --arg type "$extension" \
-        '{documentId: $docid, type: $type, content: inputs}'
+    | jq -n --arg docid "${file_name_no_ext}-${ts}" --arg type "${doc_type}" --arg filename "${file_name}" \
+        '{documentId: $docid, type: $type, content: inputs, properties: {filename: $filename}}'
 done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
 )
 
 echo $manifest > /tmp/manifest.json
-
-exit
 
 params=()
 params+=(-F "files=@/tmp/manifest.json")
