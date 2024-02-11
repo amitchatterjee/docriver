@@ -34,8 +34,8 @@ mkdir -p ~/storage/docriver/raw/p123456/
 # Start infrastructure components needed for the document repo server
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
 
-# Run Document Manager Server REST
-python $DOCRIVER_GW_HOME/server/docmgmt_http.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted
+# Run the HTTP Endpoint
+python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted
 
 #######################################################
 # Execute

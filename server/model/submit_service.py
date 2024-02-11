@@ -12,9 +12,7 @@ from minio.commonconfig import Tags
 from os import listdir
 from os.path import isfile, join
 import json
-import subprocess
 from subprocess import PIPE, STDOUT
-import clamd
 
 from exceptions import ValidationException
 
