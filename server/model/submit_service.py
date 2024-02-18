@@ -14,6 +14,7 @@ from os.path import isfile, join
 import json
 from subprocess import PIPE, STDOUT
 import uuid
+import re
 
 from exceptions import ValidationException
 
@@ -49,13 +50,12 @@ def get_payload_from_form(request):
             'type': request.form.get('documentType', default='UNSPECIFIED'),
             'documentId': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
             'content': {
-                'path': "/{}".format(uploaded_file.filename)
+                'path': uploaded_file.filename
             }
         }
         manifest['documents'].append(doc)
     # print(manifest)
     return manifest
-    
 
 def validate_manifest(payload):
     if not payload or not 'txId' in payload \
@@ -64,12 +64,22 @@ def validate_manifest(payload):
         or len(payload['documents']) == 0:
         raise ValidationException('Validation error')
     
+    if not re.match('^[a-zA-Z0-9_\-]+$', payload['txId']):
+        raise ValidationException("txId is not valid")
+    
+    for document in payload['documents']:
+        if 'documentId' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['documentId']):
+            raise ValidationException('documentId not found or documentId is not valid')
+        
+        if 'content' in document and 'path' in document['content'] and not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['content']['path']):
+            raise ValidationException('path is not valid')
+        
+        if 'content' in document and 'path' in document['content'] and re.match('^[\.]{2,}$', document['content']['path']):
+            raise ValidationException('path is not valid - contains ..')
+    
 def preprocess_manifest(payload):
-    documents = payload['documents']
-    # Assemble all the document in untrusted area for security and other validations
-    for document in documents:
-        if 'version' not in document:
-            document['version'] = current_time_ms()
+    for document in payload['documents']:
+        document['dr:version'] = current_time_ms()
 
 def decode(encoding, data):
     if not encoding or encoding == 'none':
@@ -96,8 +106,11 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
         if 'content' in document:
             if 'inline' in document['content']:
                 ext = mimetypes.guess_extension(document['content']['mimeType'], False) 
-                ext = ext if ext else '.unk'            
-                stage_filename = "{}/{}-{}{}".format(stage_dir, document['documentId'], document['version'], ext)
+                ext = ext if ext else '.unk'
+                stage_filename = "{}/{}-{}{}".format(stage_dir,
+                    # the following is needed to remove any "directories" if the document id is specified in a path form                 
+                    os.path.splitext(document['documentId'])[1], 
+                    document['dr:version'], ext)
                 content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
                 # TODO this may not be a binary file. Using mimetype, determine if the file is binary or not and use "w" va. "wb"
                 with open(stage_filename, "wb") as stream:
@@ -118,7 +131,7 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
 
 def find_matching_document(documents, filename):
     for document in documents:
-        if 'content' in document and document['content']['path'] == '/' + filename:
+        if 'content' in document and document['content']['path'] == filename:
             return document
         # else: the documentId refers to an existing document
     return None
@@ -175,7 +188,7 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
 
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
-    return "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['version'], ext)
+    return "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['dr:version'], ext)
 
 def write_to_obj_store(minio, bucket, payload):
     documents = payload['documents']
