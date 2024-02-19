@@ -3,6 +3,9 @@
 #######################################################
 docker network create dl
 
+# Install lynx and jq
+sudo dnf install -y lynx jq
+
 # Install python dependencies
 pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep clamd
 

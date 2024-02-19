@@ -82,7 +82,7 @@ manifest=$(for file in $files; do
   jq -n --arg fname "$file_name" '{path: $fname}' \
     | jq -n --arg docid "${file_name_no_ext}-${ts}" --arg type "${doc_type}" --arg filename "${file_name}" \
         '{documentId: $docid, type: $type, content: inputs, properties: {filename: $filename}}'
-done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{txId: $tx, realm: $realm, documents: [inputs]}' \
+done | jq -n --arg tx "$tx_id" --arg realm "$realm" '{tx: $tx, realm: $realm, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
 )
 
@@ -94,7 +94,7 @@ for file in $files; do
   params+=(-F "files=@${file}")
 done
 # echo "${params[@]}"
-curl $verbose -H "Accept: text/html" "${params[@]}" "$server_url"
+curl $verbose -s -H "Accept: text/html" "${params[@]}" "$server_url" | lynx -dump -stdin
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

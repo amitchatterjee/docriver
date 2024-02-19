@@ -1,3 +1,4 @@
+import pprint
 from flask import Flask, jsonify, request, send_from_directory
 from flask_accept import accept
 from flask_cors import CORS
@@ -5,6 +6,7 @@ import logging
 import os
 import shutil
 import uuid
+import time
 
 from exceptions import ValidationException
 from model.submit_service import validate_manifest, preprocess_manifest, write_metadata, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form, write_to_obj_store
@@ -31,8 +33,23 @@ def db_healthcheck():
 def health_status(up):
     return "UP" if up else "DOWN"
 
+def format_html(obj, indent = 1):
+    if isinstance(obj, list):
+        htmls = []
+        for k in obj:
+            htmls.append(format_html(k,indent+1))
+        return '[<div style="margin-left: %dem">%s</div>]' % (indent, ',<br>'.join(htmls))
+
+    if isinstance(obj, dict):
+        htmls = []
+        for k,v in obj.items():
+            htmls.append("<span style='font-style: italic; color: #888'>%s</span>: %s" % (k,format_html(v,indent+1)))
+        return '{<div style="margin-left: %dem">%s</div>}' % (indent, ',<br>'.join(htmls))
+    return str(obj)
+
 @app.route('/tx', methods=['POST'])
 def submit_docs():
+    start = int(round(time.time() * 1000))
     rest = request.content_type == 'application/json'
     payload = None
     stage_dir = stage_dirname(args.untrustedFilesystemMount)
@@ -47,7 +64,7 @@ def submit_docs():
         validate_manifest(payload)
 
         os.makedirs(stage_dir)
-        logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['txId'], request.content_type, request.headers.get('Accept', default='text/html')))
+        logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html')))
 
         preprocess_manifest(payload)
 
@@ -58,15 +75,19 @@ def submit_docs():
             filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
 
         validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        tx_id = write_metadata(connection, args.bucket, payload)
+        write_metadata(connection, args.bucket, payload)
         write_to_obj_store(minio, args.bucket, payload)
         connection.commit()
 
+        end = int(round(time.time() * 1000))
+        result = format_result(start, payload, end)
+        
         if request.headers.get('Accept', default='text/html') == 'application/json':
-            return jsonify({'status': 'ok', 'ref': tx_id}), {'Content-Type': 'application/json'}
+            return jsonify(result), {'Content-Type': 'application/json'}
         else:
             # TODO use a jinja template
-            return "txId: {}".format(tx_id), 'text/html'
+            # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
+            return format_html(result, indent=1), 'text/html'
     except Exception as e:
         connection.rollback()
         raise e
@@ -75,6 +96,15 @@ def submit_docs():
             shutil.rmtree(stage_dir)
         if connection.is_connected():
             connection.close()
+
+def format_result(start, payload, end):
+    result = {'dr:status': 'ok', 'dr:took': end - start}
+    for document in payload['documents']:
+        del document['dr:stageFilename']
+        if 'content' in document and 'inline' in document['content']:
+            document['content']['inline'] = '<snipped>'
+    result.update(payload)
+    return result
 
 @app.route('/favicon.ico')
 def favicon():

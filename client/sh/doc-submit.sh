@@ -105,7 +105,7 @@ fi
 
 cat << EOF > /tmp/manifest.json
 {
-    "txId": "${tx_id}",
+    "tx": "${tx_id}",
     "realm": "${realm}",
     "documents": [
         {
@@ -138,7 +138,7 @@ cat << EOF > /tmp/manifest.json
 }
 EOF
 
-curl -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url"
+curl -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url" | jq
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

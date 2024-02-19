@@ -31,7 +31,7 @@ def get_payload_from_form(request):
         raise ValidationException('manifest file not found and realm not specified in the form field')
     manifest = {
         'realm': request.form['realm'],
-        'txId': request.form.get('txId', default=str(uuid.uuid4())),
+        'tx': request.form.get('tx', default=str(uuid.uuid4())),
         'documents':[]
     }
 
@@ -58,14 +58,14 @@ def get_payload_from_form(request):
     return manifest
 
 def validate_manifest(payload):
-    if not payload or not 'txId' in payload \
+    if not payload or not 'tx' in payload \
         or not 'realm' in payload \
         or not 'documents' in payload \
         or len(payload['documents']) == 0:
         raise ValidationException('Basic validation error')
     
-    if not re.match('^[a-zA-Z0-9_\-]+$', payload['txId']):
-        raise ValidationException("txId is not valid")
+    if not re.match('^[a-zA-Z0-9_\-]+$', payload['tx']):
+        raise ValidationException("tx is not valid")
     
     for document in payload['documents']:
         if 'documentId' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['documentId']):
@@ -227,7 +227,7 @@ def write_references(cursor, references, version_id):
 def write_metadata(connection, bucket, payload):
     cursor = connection.cursor()
     try:
-        cursor.execute(("INSERT INTO TX (TX, REALM) VALUES (%s, %s)"), (payload['txId'], payload['realm']))
+        cursor.execute(("INSERT INTO TX (TX, REALM) VALUES (%s, %s)"), (payload['tx'], payload['realm']))
         tx_id = cursor.lastrowid
 
         documents = payload['documents']
@@ -302,7 +302,7 @@ def write_metadata(connection, bucket, payload):
                   VALUES(%s, %s, %s) 
                   """), 
                   ('INGESTION', 'I', tx_id))
-        return tx_id
+        payload['dr:txId'] = tx_id
     finally:
         cursor.close()
 
