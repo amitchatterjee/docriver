@@ -48,7 +48,7 @@ def get_payload_from_form(request):
     for uploaded_file in request.files.getlist('files'):
         doc = {
             'type': request.form.get('documentType', default='UNSPECIFIED'),
-            'documentId': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
+            'document': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
             'content': {
                 'path': uploaded_file.filename
             }
@@ -68,8 +68,8 @@ def validate_manifest(payload):
         raise ValidationException("tx is not valid")
     
     for document in payload['documents']:
-        if 'documentId' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['documentId']):
-            raise ValidationException('documentId not found or documentId is not valid')
+        if 'document' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['document']):
+            raise ValidationException('document not found or document is not valid')
         
         if 'content' in document and 'path' in document['content']:
             if not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['content']['path']):
@@ -110,7 +110,7 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
                 ext = ext if ext else '.unk'
                 stage_filename = "{}/{}-{}{}".format(stage_dir,
                     # the following is needed to remove any "directories" if the document id is specified in a path form                 
-                    os.path.splitext(document['documentId'])[1], 
+                    os.path.splitext(document['document'])[1], 
                     document['dr:version'], ext)
                 content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
                 # TODO this may not be a binary file. Using mimetype, determine if the file is binary or not and use "w" va. "wb"
@@ -120,8 +120,8 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
                 src_filename = "{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['path'])
                 stage_filename = "{}/{}".format(stage_dir, os.path.split(src_filename)[1])
                 shutil.copyfile(src_filename, stage_filename)
-            # else: If the inline/path attributes are not specified, then the documentId refers to an existing document
-        # else: If the content attribute is not specified, then the documentId refers to an existing document
+            # else: If the inline/path attributes are not specified, then the document refers to an existing document
+        # else: If the content attribute is not specified, then the document refers to an existing document
 
         if stage_filename:
             document['dr:stageFilename'] = stage_filename
@@ -134,7 +134,7 @@ def find_matching_document(documents, filename):
     for document in documents:
         if 'content' in document and document['content']['path'] == filename:
             return document
-        # else: the documentId refers to an existing document
+        # else: the document refers to an existing document
     return None
 
 def stage_documents_from_form(request, stage_dir, payload):
@@ -189,13 +189,13 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
 
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
-    return "/{}/raw/{}-{}{}".format(payload['realm'], document['documentId'], document['dr:version'], ext)
+    return "/{}/raw/{}-{}{}".format(payload['realm'], document['document'], document['dr:version'], ext)
 
 def write_to_obj_store(minio, bucket, payload):
     documents = payload['documents']
     for document in documents: 
         if 'dr:stageFilename' in document:
-            # TODO add more dr:tags to store documentId, etc.
+            # TODO add more dr:tags to store document, etc.
             # TODO the code below is not transactional. That means if a file put fails, the minio storage will be in a messed up state. We can perform cleanups since we have the references in the metadata store. A better way to do this is to tar the files and have minio extract it - https://blog.min.io/minio-optimizes-small-objects/
             with io.FileIO(document['dr:stageFilename']) as stream:
                     put_object(minio, bucket, format_doc_key(payload, document), stream, 
@@ -206,7 +206,7 @@ def write_to_obj_store(minio, bucket, payload):
 def write_references(cursor, references, version_id):
     for reference in references:
         cursor.execute(("""
-            INSERT INTO REF 
+            INSERT INTO DOC_REF 
                 (RESOURCE_TYPE, RESOURCE_ID, DESCRIPTION, DOC_VERSION_ID) 
             VALUES(%s, %s, %s, %s) 
             """), 
@@ -218,7 +218,7 @@ def write_references(cursor, references, version_id):
         if 'properties' in reference:
             for k,v in reference['properties'].items():
                 cursor.execute( ("""
-                        INSERT INTO REF_PROPERTY 
+                        INSERT INTO DOC_REF_PROPERTY 
                             (REF_ID, KEY_NAME, VALUE) 
                         VALUES(%s, %s, %s)
                         """), 
@@ -231,7 +231,8 @@ def write_metadata(connection, bucket, payload):
         tx_id = cursor.lastrowid
 
         documents = payload['documents']
-        for document in documents: 
+        for document in documents:
+            doc_id = None 
             if 'dr:stageFilename' in document:
                 replaces_doc_id = None
                 if 'replaces' in document:
@@ -247,22 +248,21 @@ def write_metadata(connection, bucket, payload):
                         raise ValidationException('Non-existent replacement document')
                     replaces_doc_id = row[0]
 
-                cursor.execute(("""
-                    INSERT INTO DOC (DOCUMENT, TYPE, MIME_TYPE, REPLACES_DOC_ID) 
-                    VALUES (%s, %s, %s, %s)
-                    """), 
-                    (document['documentId'],  
-                    document['type'], 
-                    document['content']['mimeType'],
-                    replaces_doc_id))
-                doc_id = cursor.lastrowid
+                    if document['replaces'] == document['document']:
+                        # if the document is replacing self
+                        doc_id = replaces_doc_id
 
-                if replaces_doc_id:
+                if not doc_id:
+                    # If the document has not already been created (replacing self case)
                     cursor.execute(("""
-                        INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_DOC_ID) 
-                        VALUES(%s, %s, %s, %s) 
+                        INSERT INTO DOC (DOCUMENT, TYPE, MIME_TYPE, REPLACES_DOC_ID) 
+                        VALUES (%s, %s, %s, %s)
                         """), 
-                        ('REPLACEMENT', 'R', replaces_doc_id, doc_id))
+                        (document['document'],  
+                        document['type'], 
+                        document['content']['mimeType'],
+                        replaces_doc_id))
+                    doc_id = cursor.lastrowid
 
                 cursor.execute(("""
                     INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL)
@@ -270,6 +270,13 @@ def write_metadata(connection, bucket, payload):
                     """), 
                     (doc_id, tx_id, "minio:{}:{}".format(bucket, format_doc_key(payload, document))))
                 version_id = cursor.lastrowid
+
+                if replaces_doc_id:
+                    cursor.execute(("""
+                        INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_DOC_ID) 
+                        VALUES(%s, %s, %s, %s) 
+                        """), 
+                        ('REPLACEMENT', 'R', replaces_doc_id, doc_id))
             else:
                 # Reference to an existing document
                 cursor.execute("""
@@ -279,10 +286,10 @@ def write_metadata(connection, bucket, payload):
                         AND d.DOCUMENT = %(doc)s 
                     GROUP BY DOC_ID
                     """, 
-                    {'doc': document['documentId']})
+                    {'doc': document['document']})
                 row = cursor.fetchone()
                 if not row:
-                    raise ValidationException("Document: {} does not exist".format(document['documentId']))
+                    raise ValidationException("Document: {} does not exist".format(document['document']))
                 version_id = row[0]
                 doc_id = row[1]
 
@@ -300,7 +307,7 @@ def write_metadata(connection, bucket, payload):
             if 'references' in document:
                 write_references(cursor, document['references'], version_id)
 
-            document['dr:documentId'] = doc_id
+            document['dr:document'] = doc_id
             document['dr:documentVersionId'] = version_id
 
         cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 

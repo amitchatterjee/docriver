@@ -3,7 +3,7 @@
     "realm": "p123456",
     "documents": [
         {
-            "documentId": "555555555",
+            "document": "555555555",
             "type": "sample",
 
             "tags": {},

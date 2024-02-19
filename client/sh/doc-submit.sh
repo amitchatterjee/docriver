@@ -109,7 +109,7 @@ cat << EOF > /tmp/manifest.json
     "realm": "${realm}",
     "documents": [
         {
-            "documentId": "${doc_id}",
+            "document": "${doc_id}",
             "type": "${doc_type}",
 
             $replaces_content

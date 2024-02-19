@@ -3,7 +3,7 @@
     "realm": "p123456",
     "documents": [
         {
-            "documentId": "123456789",
+            "document": "123456789",
             "type": "medical-record",
 
             "tags": {},
