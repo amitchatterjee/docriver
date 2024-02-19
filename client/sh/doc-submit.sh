@@ -121,17 +121,18 @@ cat << EOF > /tmp/manifest.json
             "content": {
                 $mime_content
                 $file_content
-            }
-        }
-    ],
-    "references": [
-        {
-            "resourceType": "${resource_type}",
-            "resourceId": "${resource_id}",
-            "description": "${resource_description}",
-            "properties": {
-                "key1": "value1"
-            }
+            },
+
+            "references": [
+              {
+                "resourceType": "${resource_type}",
+                "resourceId": "${resource_id}",
+                "description": "${resource_description}",
+                "properties": {
+                    "key1": "value1"
+                }
+              }
+            ]
         }
     ]
 }

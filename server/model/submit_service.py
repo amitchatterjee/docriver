@@ -62,7 +62,7 @@ def validate_manifest(payload):
         or not 'realm' in payload \
         or not 'documents' in payload \
         or len(payload['documents']) == 0:
-        raise ValidationException('Validation error')
+        raise ValidationException('Basic validation error')
     
     if not re.match('^[a-zA-Z0-9_\-]+$', payload['txId']):
         raise ValidationException("txId is not valid")
@@ -71,11 +71,12 @@ def validate_manifest(payload):
         if 'documentId' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['documentId']):
             raise ValidationException('documentId not found or documentId is not valid')
         
-        if 'content' in document and 'path' in document['content'] and not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['content']['path']):
-            raise ValidationException('path is not valid')
+        if 'content' in document and 'path' in document['content']:
+            if not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['content']['path']):
+                raise ValidationException('path is not valid')
         
-        if 'content' in document and 'path' in document['content'] and re.match('^[\.]{2,}$', document['content']['path']):
-            raise ValidationException('path is not valid - contains ..')
+            if re.match('^[\.]{2,}$', document['content']['path']):
+                raise ValidationException('path is not valid - contains ..')
     
 def preprocess_manifest(payload):
     for document in payload['documents']:
@@ -201,30 +202,33 @@ def write_to_obj_store(minio, bucket, payload):
                         document['content']['mimeType'],
                         document['tags'] if 'tags' in document else None,
                         document['properties'] if 'properties' in document else None)
-                    
+
+def write_references(cursor, references, version_id):
+    for reference in references:
+        cursor.execute(("""
+            INSERT INTO REF 
+                (RESOURCE_TYPE, RESOURCE_ID, DESCRIPTION, DOC_VERSION_ID) 
+            VALUES(%s, %s, %s, %s) 
+            """), 
+            (reference['resourceType'], 
+            reference ['resourceId'],
+            reference['description'] if 'description' in reference else None, 
+            version_id))
+        ref_id = cursor.lastrowid
+        if 'properties' in reference:
+            for k,v in reference['properties'].items():
+                cursor.execute( ("""
+                        INSERT INTO REF_PROPERTY 
+                            (REF_ID, KEY_NAME, VALUE) 
+                        VALUES(%s, %s, %s)
+                        """), 
+                        (ref_id, k, v))
+
 def write_metadata(connection, bucket, payload):
     cursor = connection.cursor()
     try:
         cursor.execute(("INSERT INTO TX (TX, REALM) VALUES (%s, %s)"), (payload['txId'], payload['realm']))
         tx_id = cursor.lastrowid
-
-        if 'references' in payload:
-            for reference in payload['references']:
-                cursor.execute(("""
-                    INSERT INTO REF (RESOURCE_TYPE, RESOURCE_ID, DESCRIPTION, TX_ID) 
-                    VALUES(%s, %s, %s, %s) 
-                    """), 
-                  (reference['resourceType'], 
-                    reference ['resourceId'],
-                    reference['description'] if 'description' in reference else None, 
-                    tx_id))
-                ref_id = cursor.lastrowid
-                if 'properties' in reference:
-                    for k,v in reference['properties'].items():
-                        cursor.execute( ("""
-                                INSERT INTO REF_PROPERTY (REF_ID, KEY_NAME, VALUE) VALUES(%s, %s, %s)
-                             """), 
-                             (ref_id, k, v))
 
         documents = payload['documents']
         for document in documents: 
@@ -265,6 +269,14 @@ def write_metadata(connection, bucket, payload):
                     VALUES(%s, %s, %s)
                     """), 
                     (doc_id, tx_id, "minio:{}:{}".format(bucket, format_doc_key(payload, document))))
+                version_id = cursor.lastrowid
+                
+                if 'references' in payload:
+                    write_references(cursor, payload['references'], version_id)
+
+                if 'references' in document:
+                    write_references(cursor, document['references'], version_id)
+                
             else:
                 # Reference to an existing document
                 cursor.execute("""
