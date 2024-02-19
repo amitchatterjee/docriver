@@ -59,5 +59,5 @@ if __name__ == '__main__':
     init_obj_store()
     init_virus_scanner()
 
-    http.receive_requests(args, connection_pool, minio, scanner)
+    http.process_requests(args, connection_pool, minio, scanner)
 

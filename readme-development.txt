@@ -38,7 +38,7 @@ mkdir -p ~/storage/docriver/raw/p123456/
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
 
 # Run the HTTP Endpoint
-python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted
+python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 #######################################################
 # Execute

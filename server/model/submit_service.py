@@ -270,25 +270,21 @@ def write_metadata(connection, bucket, payload):
                     """), 
                     (doc_id, tx_id, "minio:{}:{}".format(bucket, format_doc_key(payload, document))))
                 version_id = cursor.lastrowid
-                
-                if 'references' in payload:
-                    write_references(cursor, payload['references'], version_id)
-
-                if 'references' in document:
-                    write_references(cursor, document['references'], version_id)
-                
             else:
                 # Reference to an existing document
                 cursor.execute("""
-                    SELECT ID
-                    FROM DOC
-                    WHERE DOCUMENT = %(doc)s 
+                   SELECT MAX(v.ID) AS VERSION_ID, v.DOC_ID 
+                    FROM DOC_VERSION v, DOC d
+                    WHERE d.ID = v.DOC_ID 
+                        AND d.DOCUMENT = %(doc)s 
+                    GROUP BY DOC_ID
                     """, 
                     {'doc': document['documentId']})
                 row = cursor.fetchone()
                 if not row:
-                    raise ValidationException('Non-existent document')
-                doc_id = row[0]
+                    raise ValidationException("Document: {} does not exist".format(document['documentId']))
+                version_id = row[0]
+                doc_id = row[1]
 
             cursor.execute(("""
                 INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
@@ -297,6 +293,15 @@ def write_metadata(connection, bucket, payload):
                 ('INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
                 'I' if 'dr:stageFilename' in document else 'J', 
                 doc_id, tx_id))
+            
+            if 'references' in payload:
+                write_references(cursor, payload['references'], version_id)
+
+            if 'references' in document:
+                write_references(cursor, document['references'], version_id)
+
+            document['dr:documentId'] = doc_id
+            document['dr:documentVersionId'] = version_id
 
         cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 
                   VALUES(%s, %s, %s) 
