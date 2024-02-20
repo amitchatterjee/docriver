@@ -232,7 +232,8 @@ def write_metadata(connection, bucket, payload):
 
         documents = payload['documents']
         for document in documents:
-            doc_id = None 
+            doc_id = None
+            self_replace = False
             if 'dr:stageFilename' in document:
                 replaces_doc_id = None
                 if 'replaces' in document:
@@ -250,9 +251,10 @@ def write_metadata(connection, bucket, payload):
 
                     if document['replaces'] == document['document']:
                         # if the document is replacing self
+                        self_replace = True
                         doc_id = replaces_doc_id
 
-                if not doc_id:
+                if not self_replace:
                     # If the document has not already been created (replacing self case)
                     cursor.execute(("""
                         INSERT INTO DOC (DOCUMENT, TYPE, MIME_TYPE, REPLACES_DOC_ID) 
@@ -272,11 +274,18 @@ def write_metadata(connection, bucket, payload):
                 version_id = cursor.lastrowid
 
                 if replaces_doc_id:
-                    cursor.execute(("""
-                        INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_DOC_ID) 
-                        VALUES(%s, %s, %s, %s) 
-                        """), 
-                        ('REPLACEMENT', 'R', replaces_doc_id, doc_id))
+                    if self_replace:
+                        cursor.execute(("""
+                            INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
+                            VALUES(%s, %s, %s, %s) 
+                            """), 
+                            ('NEW_VERSION', 'V', doc_id, tx_id))
+                    else:
+                        cursor.execute(("""
+                            INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_DOC_ID, REF_TX_ID) 
+                            VALUES(%s, %s, %s, %s, %s) 
+                            """), 
+                            ('REPLACEMENT', 'R', replaces_doc_id, doc_id, tx_id))
             else:
                 # Reference to an existing document
                 cursor.execute("""

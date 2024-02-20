@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS DOC_REF_PROPERTY (
 CREATE TABLE IF NOT EXISTS DOC_EVENT (
     ID BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
     EVENT_TIME DATETIME NOT NULL DEFAULT NOW(),
-    -- Ingested: I, Referenced: J, Processing in progress: P, Processing completed: C, Processing failed: F, Document deleted: D, Document replaced: R, etc.
+    -- Ingested: I, Referenced: J, Processing in progress: P, Processing completed: C, Processing failed: F, Document deleted: D, Document replaced: R, New version: V, etc.
     STATUS CHAR(1) NOT NULL,
     DESCRIPTION VARCHAR(200),
     -- If status = R, specify the Document that replaced it
