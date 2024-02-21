@@ -7,16 +7,17 @@ import logging
 import mimetypes
 import shutil
 import pathlib
-import fleep
+
 from minio.commonconfig import Tags
-from os import listdir
-from os.path import isfile, join
 import json
 from subprocess import PIPE, STDOUT
 import uuid
 import re
 
 from exceptions import ValidationException
+from dao.tx import create_tx, create_tx_event
+from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_and_version_by_name, get_doc_by_name
+from model.validator import validate_documents
 
 def current_time_ms():
     return round(time.time() * 1000)
@@ -152,41 +153,6 @@ def stage_documents_from_form(request, stage_dir, payload):
             filename_mime_dict[staged_filename] = document['content']['mimeType']
     return filename_mime_dict
 
-def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
-    for file in listdir(stage_dir):
-        full_path = join(stage_dir, file)
-        if isfile(full_path):
-            if mimetypes.guess_type(full_path)[0].startswith('text'):
-                # Skip for text file. TODO The way we detect it here is not great. Improve text file detection
-                continue
-            # For binary files, use magic to detect file types
-            with open(full_path, 'rb') as stream:
-                ext = pathlib.Path(full_path).suffix
-                content = stream.read(128)
-                info = fleep.get(content)
-                if not info.extension_matches(ext[1:]):
-                     raise ValidationException("Magic mismatch for extension in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
-                if not info.mime_matches(filename_mime_dict[full_path]):
-                     raise ValidationException("Magic mismatch for mimeType in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
-                # print('Type:', info.type)
-                # print('File extension:', info.extension[0])
-                # print('MIME type:', info.mime[0]) 
-
-    # TODO this code is temporary
-    # command="""
-    #    docker run -it --rm --name clamdscan --network dl --mount type=bind,source={},target=/scandir --mount type=bind,source=$DOCRIVER_GW_HOME/src/test/conf/# clam.remote.conf,target=/conf/clam.remote.conf  clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout -c /conf/clam.remote.conf /scandir
-    # """.format(stage_dir)
-    # result = subprocess.run(command, shell=True, stderr=STDOUT, stdout=PIPE, text=True, check=True)
-    # print(result.stdout)
-    # logging.getLogger().info("Scan result: ", result.stdout)
-    # os.system(command) 
-
-    # This assumes that the staging area is created just below the untrusted filesystem mount
-    result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
-    for kv in result.items():
-        if kv[1][0] != 'OK':
-            raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))
-
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
     return "/{}/raw/{}-{}{}".format(payload['realm'], document['document'], document['dr:version'], ext)
@@ -203,33 +169,13 @@ def write_to_obj_store(minio, bucket, payload):
                         document['tags'] if 'tags' in document else None,
                         document['properties'] if 'properties' in document else None)
 
-def write_references(cursor, references, version_id):
-    for reference in references:
-        cursor.execute(("""
-            INSERT INTO DOC_REF 
-                (RESOURCE_TYPE, RESOURCE_ID, DESCRIPTION, DOC_VERSION_ID) 
-            VALUES(%s, %s, %s, %s) 
-            """), 
-            (reference['resourceType'], 
-            reference ['resourceId'],
-            reference['description'] if 'description' in reference else None, 
-            version_id))
-        ref_id = cursor.lastrowid
-        if 'properties' in reference:
-            for k,v in reference['properties'].items():
-                cursor.execute( ("""
-                        INSERT INTO DOC_REF_PROPERTY 
-                            (REF_ID, KEY_NAME, VALUE) 
-                        VALUES(%s, %s, %s)
-                        """), 
-                        (ref_id, k, v))
-
 def write_metadata(connection, bucket, payload):
     cursor = connection.cursor()
     try:
-        cursor.execute(("INSERT INTO TX (TX, REALM) VALUES (%s, %s)"), (payload['tx'], payload['realm']))
-        tx_id = cursor.lastrowid
-
+        tx_id = create_tx(payload, cursor)
+        payload['dr:txId'] = tx_id
+        create_tx_event(cursor, tx_id)
+        
         documents = payload['documents']
         for document in documents:
             doc_id = None
@@ -240,14 +186,9 @@ def write_metadata(connection, bucket, payload):
                     # Reference to an existing document
 
                     # TODO if the document has already been replaced, we should not allow a replacement
-                    cursor.execute("""
-                        SELECT ID FROM DOC WHERE DOCUMENT = %(replace)s
-                        """, 
-                        {"replace": document['replaces']})
-                    row = cursor.fetchone()
-                    if not row:
-                        raise ValidationException('Non-existent replacement document')
-                    replaces_doc_id = row[0]
+                    replaces_doc_id = get_doc_by_name(cursor, document['replaces'])
+                    if replaces_doc_id == None:
+                        raise ValidationException('Non-existent replacement document: {}'.format(document['replaces']))
 
                     if document['replaces'] == document['document']:
                         # if the document is replacing self
@@ -256,83 +197,96 @@ def write_metadata(connection, bucket, payload):
 
                 if not self_replace:
                     # If the document has not already been created (replacing self case)
-                    cursor.execute(("""
-                        INSERT INTO DOC (DOCUMENT, TYPE, MIME_TYPE, REPLACES_DOC_ID) 
-                        VALUES (%s, %s, %s, %s)
-                        """), 
-                        (document['document'],  
-                        document['type'], 
-                        document['content']['mimeType'],
-                        replaces_doc_id))
-                    doc_id = cursor.lastrowid
+                    doc_id = create_doc(cursor, document, replaces_doc_id)
 
-                cursor.execute(("""
-                    INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL)
-                    VALUES(%s, %s, %s)
-                    """), 
-                    (doc_id, tx_id, "minio:{}:{}".format(bucket, format_doc_key(payload, document))))
-                version_id = cursor.lastrowid
+                version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document))
 
                 if replaces_doc_id:
                     if self_replace:
-                        cursor.execute(("""
-                            INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
-                            VALUES(%s, %s, %s, %s) 
-                            """), 
-                            ('NEW_VERSION', 'V', doc_id, tx_id))
+                        create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
                     else:
-                        cursor.execute(("""
-                            INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_DOC_ID, REF_TX_ID) 
-                            VALUES(%s, %s, %s, %s, %s) 
-                            """), 
-                            ('REPLACEMENT', 'R', replaces_doc_id, doc_id, tx_id))
+                        create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, 'REPLACEMENT', 'R')
             else:
                 # Reference to an existing document
-                cursor.execute("""
-                   SELECT MAX(v.ID) AS VERSION_ID, v.DOC_ID 
-                    FROM DOC_VERSION v, DOC d
-                    WHERE d.ID = v.DOC_ID 
-                        AND d.DOCUMENT = %(doc)s 
-                    GROUP BY DOC_ID
-                    """, 
-                    {'doc': document['document']})
-                row = cursor.fetchone()
-                if not row:
-                    raise ValidationException("Document: {} does not exist".format(document['document']))
-                version_id = row[0]
-                doc_id = row[1]
+                doc_and_version = get_doc_and_version_by_name(cursor, document['document'])
+                if doc_and_version == None:
+                    raise ValidationException("Document: {} not found".format(document['document']))
+                doc_id, version_id = doc_and_version['doc'], doc_and_version['version']
 
-            cursor.execute(("""
-                INSERT INTO DOC_EVENT (DESCRIPTION, STATUS, DOC_ID, REF_TX_ID) 
-                VALUES(%s, %s, %s, %s) 
-                """), 
-                ('INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
-                'I' if 'dr:stageFilename' in document else 'J', 
-                doc_id, tx_id))
-            
+            create_doc_event(cursor, tx_id, doc_id, None, 
+                             'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
+                             'I' if 'dr:stageFilename' in document else 'J')
+
             if 'references' in payload:
-                write_references(cursor, payload['references'], version_id)
+                create_references(cursor, payload['references'], version_id)
 
             if 'references' in document:
-                write_references(cursor, document['references'], version_id)
+                create_references(cursor, document['references'], version_id)
 
             document['dr:document'] = doc_id
             document['dr:documentVersionId'] = version_id
-
-        cursor.execute(("""INSERT INTO TX_EVENT (EVENT, STATUS, TX_ID) 
-                  VALUES(%s, %s, %s) 
-                  """), 
-                  ('INGESTION', 'I', tx_id))
-        payload['dr:txId'] = tx_id
     finally:
         cursor.close()
 
-# from datetime import datetime, timezone
-# from minio.commonconfig import REPLACE, CopySource
-# copy an object from a bucket to another.
-# result = client.copy_object(
-#    "my-bucket",
-#    "my-object",
-#    CopySource("my-sourcebucket", "my-sourceobject"),
-#)
-#print(result.object_name, result.version_id)
+def format_result(start, payload, end):
+    result = {'dr:status': 'ok', 'dr:took': end - start}
+    for document in payload['documents']:
+        if 'content' in document and 'inline' in document['content']:
+            document['content']['inline'] = '<snipped>'
+    result.update(payload)
+    return result
+
+def stage_dirname(untrusted_file_mount):
+    return "{}/{}".format(untrusted_file_mount, uuid.uuid1())
+
+def format_result(start, payload, end):
+    result = {'dr:status': 'ok', 'dr:took': end - start}
+    for document in payload['documents']:
+        if 'content' in document and 'inline' in document['content']:
+            document['content']['inline'] = '<snipped>'
+    result.update(payload)
+    return result
+
+def new_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):
+    start = int(round(time.time() * 1000))
+    rest = request.content_type == 'application/json'
+    payload = None
+    stage_dir = stage_dirname(untrusted_fs_mount)
+    connection = connection_pool.get_connection()
+    try:
+        if rest:
+            payload = request.json
+        else:
+            # Assume multipart/form or multipart/mixed
+            payload = get_payload_from_form(request)
+
+        validate_manifest(payload)
+
+        os.makedirs(stage_dir)
+        logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html')))
+
+        preprocess_manifest(payload)
+
+        filename_mime_dict = None
+        if rest:
+            filename_mime_dict = stage_documents_from_manifest(stage_dir, raw_fs_mount, payload)
+        else:
+            filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
+
+        validate_documents(scanner, scanner_fs_mount, stage_dir, filename_mime_dict)
+        write_metadata(connection, bucket, payload)
+        write_to_obj_store(minio, bucket, payload)
+
+        end = int(round(time.time() * 1000))
+        result = format_result(start, payload, end)
+        
+        connection.commit()
+        return result
+    except Exception as e:
+        connection.rollback()
+        raise e
+    finally:
+        if os.path.isdir(stage_dir):
+            shutil.rmtree(stage_dir)
+        if connection.is_connected():
+            connection.close()

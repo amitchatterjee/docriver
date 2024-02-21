@@ -4,12 +4,11 @@ from flask_accept import accept
 from flask_cors import CORS
 import logging
 import os
-import shutil
 import uuid
 import time
 
 from exceptions import ValidationException
-from model.submit_service import validate_manifest, preprocess_manifest, write_metadata, stage_documents_from_manifest, validate_documents, stage_documents_from_form, get_payload_from_form, write_to_obj_store
+from model.tx_submit_service import new_tx
 from controller.html_utils import to_html
 
 app = Flask(__name__)
@@ -34,63 +33,15 @@ def db_healthcheck():
 def health_status(up):
     return "UP" if up else "DOWN"
 
-def format_result(start, payload, end):
-    result = {'dr:status': 'ok', 'dr:took': end - start}
-    for document in payload['documents']:
-        if 'content' in document and 'inline' in document['content']:
-            document['content']['inline'] = '<snipped>'
-    result.update(payload)
-    return result
-
 @app.route('/tx', methods=['POST'])
-def submit_docs():
-    start = int(round(time.time() * 1000))
-    rest = request.content_type == 'application/json'
-    payload = None
-    stage_dir = stage_dirname(args.untrustedFilesystemMount)
-    connection = connection_pool.get_connection()
-    try:
-        if rest:
-            payload = request.json
-        else:
-            # Assume multipart/form or multipart/mixed
-            payload = get_payload_from_form(request)
-
-        validate_manifest(payload)
-
-        os.makedirs(stage_dir)
-        logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html')))
-
-        preprocess_manifest(payload)
-
-        filename_mime_dict = None
-        if rest:
-            filename_mime_dict = stage_documents_from_manifest(stage_dir, args.rawFilesystemMount, payload)
-        else:
-            filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
-
-        validate_documents(scanner, args.scannerFileMount, stage_dir, filename_mime_dict)
-        write_metadata(connection, args.bucket, payload)
-        write_to_obj_store(minio, args.bucket, payload)
-
-        end = int(round(time.time() * 1000))
-        result = format_result(start, payload, end)
-        
-        connection.commit()
-        if request.headers.get('Accept', default='text/html') == 'application/json':
-            return jsonify(result), {'Content-Type': 'application/json'}
-        else:
-            # TODO use a jinja template
-            # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
-            return to_html(result, indent=1), 'text/html'
-    except Exception as e:
-        connection.rollback()
-        raise e
-    finally:
-        if os.path.isdir(stage_dir):
-            shutil.rmtree(stage_dir)
-        if connection.is_connected():
-            connection.close()
+def process_new_tx():
+    result = new_tx(args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFileMount, args.bucket, connection_pool, minio, scanner, request)
+    if request.headers.get('Accept', default='text/html') == 'application/json':
+        return jsonify(result), {'Content-Type': 'application/json'}
+    else:
+        # TODO use a jinja template
+        # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
+        return to_html(result, indent=1), 'text/html'
 
 @app.route('/favicon.ico')
 def favicon():
