@@ -17,7 +17,7 @@ import re
 from exceptions import ValidationException
 from dao.tx import create_tx, create_tx_event
 from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_and_version_by_name, get_doc_by_name
-from model.validator import validate_documents
+from model.file_validator import validate_documents
 
 def current_time_ms():
     return round(time.time() * 1000)
@@ -248,7 +248,7 @@ def format_result(start, payload, end):
     return result
 
 def new_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):
-    start = int(round(time.time() * 1000))
+    start = current_time_ms()
     rest = request.content_type == 'application/json'
     payload = None
     stage_dir = stage_dirname(untrusted_fs_mount)
@@ -277,7 +277,7 @@ def new_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connectio
         write_metadata(connection, bucket, payload)
         write_to_obj_store(minio, bucket, payload)
 
-        end = int(round(time.time() * 1000))
+        end = current_time_ms()
         result = format_result(start, payload, end)
         
         connection.commit()

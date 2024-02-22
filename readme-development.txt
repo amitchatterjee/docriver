@@ -1,13 +1,29 @@
 #######################################################
 # One time setup
 #######################################################
+# Install docker
+
 docker network create dl
 
 # Install lynx and jq
 sudo dnf install -y lynx jq
 
+# Create python venv
+cd $HOME
+python -m venv docriver-venv
+
+# Add to ~/.bashrc
+# Change the line below to point to the root of the docriver source 
+export DOCRIVER_GW_HOME=$HOME/git/docriver
+source $DOCRIVER_GW_HOME/env.sh
+source ~/docriver-venv/bin/activate
+# Exit the shell and create a new one before continuing further
+
 # Install python dependencies
 pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep clamd
+
+# Install pytest
+pip install -U pytest
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
@@ -32,7 +48,7 @@ sudo dnf install mysql
 mkdir -p ~/storage/docriver/raw/p123456/
 
 #######################################################
-# Run components
+# Start components
 #######################################################
 # Start infrastructure components needed for the document repo server
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
@@ -64,6 +80,12 @@ echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p${DOCR
 
 # Access the data
 mysql -h 127.0.0.1 -u docriver -p docriver
+
+#######################################################
+# Run tests
+#######################################################
+cd $DOCRIVER_GW_HOME/server
+python -m pytest .
 
 #######################################################
 # Virus Scan

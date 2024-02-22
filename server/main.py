@@ -3,30 +3,29 @@ from minio import Minio
 import argparse
 import logging
 import clamd
-import controller.http as http
+import sys
 
-def init_db():
-    global connection_pool
-    connection_pool = mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', pool_size=args.dbPoolSize,
-            user=args.dbUser, password=args.dbPassword,
-            host=args.dbHost,
-            port=args.dbPort,
-            database=args.dbDatabase)
+from controller.http import init_app, init_params
 
-def init_obj_store():
-    global minio 
+def init_db(host, port, db, user, password, pool_size):
+    return mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', 
+            pool_size=pool_size,
+            user=user, password=password,
+            host=host,
+            port=port,
+            database=db)
+
+def init_obj_store(url, access_key, secret_key):
     # TODO fix the secure=False
-    minio = Minio(args.objUrl, secure=False,
-        access_key=args.objAccessKey,
-        secret_key=args.objSecretKey)
+    return Minio(url, secure=False, access_key=access_key, secret_key=secret_key)
     
-def init_virus_scanner():
-    global scanner
-    scanner = clamd.ClamdNetworkSocket(host=args.scanHost, port=args.scanPort)
+def init_virus_scanner(host, port):
+    return clamd.ClamdNetworkSocket(host=host, port=port)
 
-def parse_args():
-    global args
+def parse_args(args):
     parser = argparse.ArgumentParser()
+    parser.add_argument("--httpPort", type=int, help="HTTP port number", default=5000)
+
     parser.add_argument("--objUrl", help="URL of the object store", default='localhost:9000')
     parser.add_argument("--objAccessKey", help="Access key of the object store", default='docriver-key')
     parser.add_argument("--objSecretKey", help="Secret key for the object store", default='docriver-secret')
@@ -44,20 +43,24 @@ def parse_args():
 
     parser.add_argument("--scanHost", help="Document virus checker hostname", default='127.0.0.1')
     parser.add_argument("--scanPort", type=int, help="Document virus checker port number", default=3310)
-    parser.add_argument("--scannerFileMount", help="Mount point for the untrusted area in the scanner server", default='/scandir')
+    parser.add_argument("--scannerFilesystemMount", help="Mount point for the untrusted area in the scanner server", default='/scandir')
 
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
     parser.add_argument('--debug', action='store_true')
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     # TODO add validation
 
-if __name__ == '__main__':
-    parse_args()
-    logging.getLogger().setLevel(args.log)
-    init_db()
-    init_obj_store()
-    init_virus_scanner()
+    return args
 
-    http.process_requests(args, connection_pool, minio, scanner)
+if __name__ == '__main__':
+    args = parse_args(sys.argv[1:])
+    logging.getLogger().setLevel(args.log)
+    connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
+    minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
+    scanner = init_virus_scanner(args.scanHost, args.scanPort)
+
+    app = init_app()
+    init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount)
+    app.run(port=args.httpPort, debug=args.debug)
 
