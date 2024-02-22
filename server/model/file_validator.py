@@ -26,6 +26,12 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
                 # print('File extension:', info.extension[0])
                 # print('MIME type:', info.mime[0]) 
 
+    # This assumes that the staging area is created just below the untrusted filesystem mount
+    result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
+    for kv in result.items():
+        if kv[1][0] != 'OK':
+            raise ValidationException("Virus check failed on file: {}. Error: {}".format(kv[0], kv[1]))
+        
     # TODO this code is temporary
     # command="""
     #    docker run -it --rm --name clamdscan --network dl --mount type=bind,source={},target=/scandir --mount type=bind,source=$DOCRIVER_GW_HOME/src/test/conf/# clam.remote.conf,target=/conf/clam.remote.conf  clamav/clamav:stable_base clamdscan --fdpass --verbose --stdout -c /conf/clam.remote.conf /scandir
@@ -34,9 +40,3 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
     # print(result.stdout)
     # logging.getLogger().info("Scan result: ", result.stdout)
     # os.system(command) 
-
-    # This assumes that the staging area is created just below the untrusted filesystem mount
-    result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
-    for kv in result.items():
-        if kv[1][0] != 'OK':
-            raise ValidationException("Virus check failed on file: {}. Error: {}".format(pathlib.Path(kv[0]).name, kv[1]))

@@ -111,11 +111,11 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
                 ext = ext if ext else '.unk'
                 stage_filename = "{}/{}-{}{}".format(stage_dir,
                     # the following is needed to remove any "directories" if the document id is specified in a path form                 
-                    os.path.splitext(document['document'])[1], 
+                    document['document'][document['document'].rfind('/')+1:], 
                     document['dr:version'], ext)
                 content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
-                # TODO this may not be a binary file. Using mimetype, determine if the file is binary or not and use "w" va. "wb"
-                with open(stage_filename, "wb") as stream:
+                mode = "w" if document['content']['mimeType'].startswith('text') else "wb"
+                with open(stage_filename, mode) as stream:
                     stream.write(content)
             elif 'path' in document['content']:
                 src_filename = "{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['path'])

@@ -85,7 +85,7 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 # Run tests
 #######################################################
 cd $DOCRIVER_GW_HOME/server
-python -m pytest .
+python -m pytest -rPX
 
 #######################################################
 # Virus Scan
