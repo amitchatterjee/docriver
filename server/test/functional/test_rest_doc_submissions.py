@@ -69,28 +69,16 @@ def test_health(client):
     response = client.get('/health')
     assert response.json['system'] == 'UP'
 
-def test_inline_encoding_plain(cleanup, client):
-    response = client.post('/tx', json=inline_doc('Hello world', '1', 'd001', None, 'text/plain'),
-                           headers={'Accept': 'application/json'})
-    assert response.status_code == 200
-    assert response.json['dr:status'] == 'ok'
-
-def test_inline_encoding_html(cleanup, client):
-    response = client.post('/tx', json=inline_doc('<body><b>Hello world</b></body>', '1', 'd001', None, 'text/html'),
-                           headers={'Accept': 'application/json'})
-    assert response.status_code == 200
-    assert response.json['dr:status'] == 'ok'
-
-def test_inline_encoding_pdf(cleanup, client):
-    with open("test/resources/documents/sample.pdf", "rb") as pdf_file:
-        inline = base64.b64encode(pdf_file.read())
-    response = client.post('/tx', 
-                           json=inline_doc(inline.decode('utf-8'), '1', 'd001',  'base64', 'application/pdf',), 
-                           headers={'Accept': 'application/json'})
-    assert response.status_code == 200
-    assert response.json['dr:status'] == 'ok'
+def to_base64(filename):
+    with open(filename, "rb") as file:
+        inline = base64.b64encode(file.read())
+    return inline.decode('utf-8')
 
 def inline_doc(inline, tx, doc, encoding, mime_type):
+    # saved_args = locals()
+    # print("args:", saved_args)
+    if inline.startswith('file:'):
+        inline = to_base64(inline[inline.find(':')+1:])
     return {
         'tx': tx,
         'realm': TEST_REALM,
@@ -106,4 +94,18 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
             }
         ]
     }
-    
+
+def submit_inline_doc(client, parameters):
+    response = client.post('/tx', json=inline_doc(*parameters),
+                           headers={'Accept': 'application/json'})
+    return response.status_code, response.json['dr:status']
+
+@pytest.mark.parametrize("test_case, input, expected", [
+    ('plain text', ('Hello world', '1', 'd001', None, 'text/plain'), (200, 'ok')),
+    ('html', ('<body><b>Hello world</b></body>', '2', 'd002', None, 'text/html'), (200, 'ok')),
+    ('pdf', ('file:test/resources/documents/sample.pdf', '3', 'd003', 'base64', 'application/pdf'),(200, 'ok'))
+    ]
+)
+def test_encodings(cleanup, client, test_case, input, expected):
+    assert submit_inline_doc(client, input) == expected, test_case
+
