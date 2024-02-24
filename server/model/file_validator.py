@@ -1,7 +1,6 @@
 import fleep
 from os import listdir
 from os.path import isfile, join
-import mimetypes
 import pathlib
 
 from exceptions import ValidationException
@@ -10,7 +9,7 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
     for file in listdir(stage_dir):
         full_path = join(stage_dir, file)
         if isfile(full_path):
-            if mimetypes.guess_type(full_path)[0].startswith('text'):
+            if filename_mime_dict[full_path].startswith('text'):
                 # Skip for text file. TODO The way we detect it here is not great. Improve text file detection
                 continue
             # For binary files, use magic to detect file types
@@ -19,9 +18,9 @@ def validate_documents(scanner, scan_file_mount, stage_dir, filename_mime_dict):
                 content = stream.read(128)
                 info = fleep.get(content)
                 if not info.extension_matches(ext[1:]):
-                     raise ValidationException("Magic mismatch for extension in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                    raise ValidationException("Extension mismatch in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
                 if not info.mime_matches(filename_mime_dict[full_path]):
-                     raise ValidationException("Magic mismatch for mimeType in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
+                     raise ValidationException("Magic mismatch in file: {}. Expected: {}, found:{}".format(file, filename_mime_dict[full_path], info.mime))
                 # print('Type:', info.type)
                 # print('File extension:', info.extension[0])
                 # print('MIME type:', info.mime[0]) 

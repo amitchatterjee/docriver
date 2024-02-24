@@ -7,6 +7,7 @@ import logging
 import mimetypes
 import shutil
 import pathlib
+import fleep
 
 from minio.commonconfig import Tags
 import json
@@ -107,13 +108,16 @@ def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
         stage_filename = None
         if 'content' in document:
             if 'inline' in document['content']:
-                ext = mimetypes.guess_extension(document['content']['mimeType'], False) 
-                ext = ext if ext else '.unk'
+                content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
+                ext = mimetypes.guess_extension(document['content']['mimeType'], True)
+                if not ext or ext == '.mp4':
+                    # if we were unable to determine an extension based on the mimetype or if it is a mp4 type, look deeper into the content to match a magic signature
+                    info = fleep.get(content[0:128])
+                    ext = '.' + info.extension[0]
                 stage_filename = "{}/{}-{}{}".format(stage_dir,
                     # the following is needed to remove any "directories" if the document id is specified in a path form                 
                     document['document'][document['document'].rfind('/')+1:], 
                     document['dr:version'], ext)
-                content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
                 mode = "w" if document['content']['mimeType'].startswith('text') else "wb"
                 with open(stage_filename, mode) as stream:
                     stream.write(content)

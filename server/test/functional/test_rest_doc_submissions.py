@@ -65,9 +65,6 @@ def cleanup(connection_pool, minio):
         if connection.is_connected():
             connection.close()
 
-def test_health(client):
-    response = client.get('/health')
-    assert response.json['system'] == 'UP'
 
 def to_base64(filename):
     with open(filename, "rb") as file:
@@ -78,7 +75,13 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
     # saved_args = locals()
     # print("args:", saved_args)
     if inline.startswith('file:'):
-        inline = to_base64(inline[inline.find(':')+1:])
+        filename = inline[inline.find(':')+1:]
+        if encoding == 'base64':            
+            inline = to_base64(filename)
+        else:
+            with open(filename, "r") as file:
+                inline = file.read()
+    # print(inline)
     return {
         'tx': tx,
         'realm': TEST_REALM,
@@ -98,14 +101,28 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
 def submit_inline_doc(client, parameters):
     response = client.post('/tx', json=inline_doc(*parameters),
                            headers={'Accept': 'application/json'})
-    return response.status_code, response.json['dr:status']
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
+def test_health(client):
+    response = client.get('/health')
+    assert response.json['system'] == 'UP'
+
+# The parameters are (test_name, (inline_text, tx, document, encoding, mime_type), (expected_http_status, expected_dr_status))
 @pytest.mark.parametrize("test_case, input, expected", [
     ('plain text', ('Hello world', '1', 'd001', None, 'text/plain'), (200, 'ok')),
     ('html', ('<body><b>Hello world</b></body>', '2', 'd002', None, 'text/html'), (200, 'ok')),
-    ('pdf', ('file:test/resources/documents/sample.pdf', '3', 'd003', 'base64', 'application/pdf'),(200, 'ok'))
+    ('pdf', ('file:test/resources/documents/sample.pdf', '3', 'd003', 'base64', 'application/pdf'),(200, 'ok')),
+    ('jpg', ('file:test/resources/documents/sample.jpg', '4', 'd004', 'base64', 'image/jpeg'),(200, 'ok')),
+    ('m4v', ('file:test/resources/documents/sample.m4v', '5', 'd005', 'base64', 'video/mp4'),(200, 'ok')),
+    ('mp3', ('file:test/resources/documents/sample.mp3', '6', 'd006', 'base64', 'audio/mpeg'),(200, 'ok'))
     ]
 )
 def test_encodings(cleanup, client, test_case, input, expected):
     assert submit_inline_doc(client, input) == expected, test_case
 
+@pytest.mark.parametrize("test_case, input, expected", [
+    ('virus', ('file:test/resources/documents/eicar.txt', '1', 'v001', None, 'text/plain'), (400, 'Virus check failed on file'))])
+def test_virus(cleanup, client, test_case, input, expected):
+    result = submit_inline_doc(client, input)
+    assert expected[0] == result[0] and result[1].startswith(expected[1]), test_case 
