@@ -1,0 +1,98 @@
+import os
+import pytest
+import logging
+import base64
+from controller.http import init_app, init_params
+from main import init_db, init_obj_store, init_virus_scanner
+
+TEST_REALM = 'test123456'
+
+def delete_obj_recursively(minio, bucketname, folder):
+    objs = minio.list_objects(bucketname, prefix=folder, recursive=True)
+    for obj in objs:
+        minio.remove_object(bucketname, obj.object_name)
+
+def to_base64(filename):
+    with open(filename, "rb") as file:
+        inline = base64.b64encode(file.read())
+    return inline.decode('utf-8')
+
+def inline_doc(inline, tx, doc, encoding, mime_type):
+    # saved_args = locals()
+    # print("args:", saved_args)
+    if inline.startswith('file:'):
+        filename = inline[inline.find(':')+1:]
+        full_path = os.path.join('test/resources/documents', TEST_REALM ,filename)
+        if encoding == 'base64':            
+            inline = to_base64(full_path)
+        else:
+            with open(full_path, "r") as file:
+                inline = file.read()
+    # print(inline)
+    return {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': [
+            {
+                'document': doc,
+                'type': 'sample',
+                'content': {
+                    'mimeType': mime_type,
+                    'encoding': encoding,
+                    'inline': inline
+                }
+            }
+        ]
+    }
+
+def submit_inline_doc(client, parameters):
+    response = client.post('/tx', json=inline_doc(*parameters),
+                           headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
+
+def path_doc(path, tx, doc, mime_type):
+    return {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': [
+            {
+                'document': doc,
+                'type': 'sample',
+                'content': {
+                    'mimeType': mime_type,
+                    'path': path
+                }
+            }
+        ]
+    }
+
+def submit_path_doc(client, parameters):
+    response = client.post('/tx', json=path_doc(*parameters),
+        headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
+
+def path_docs(tx, doc_prefix, exclude = None):
+    tx = {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': []
+    }
+    for i, file in enumerate(os.listdir(os.path.join('test/resources/documents', TEST_REALM))):
+        if exclude and file == exclude:
+            continue
+        tx['documents'].append({
+                'document': doc_prefix + str(i),
+                'type': 'sample',
+                'content': {
+                    'path': file
+                }
+            })
+    return tx
+
+def submit_path_docs(client, tx, doc_prefix, exclude=None):
+    response = client.post('/tx', json=path_docs(tx, doc_prefix, exclude),
+        headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
