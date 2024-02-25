@@ -1,5 +1,4 @@
 import os
-import shutil
 import pytest
 import logging
 import base64
@@ -7,11 +6,6 @@ from controller.http import init_app, init_params
 from main import init_db, init_obj_store, init_virus_scanner
 
 TEST_REALM = 'test123456'
-
-def rmmkdir(path):
-    if os.path.exists(path):
-        shutil.rmtree(path)
-    os.makedirs(path)
 
 def delete_obj_recursively(minio, bucketname, folder):
     objs = minio.list_objects(bucketname, prefix=folder, recursive=True)
@@ -37,9 +31,7 @@ def scanner():
 @pytest.fixture(scope="session", autouse=True)
 def client(connection_pool, minio, scanner):
     logging.getLogger().setLevel('INFO')
-    raw='../target/volumes/raw'
-    rmmkdir(raw)
-
+    raw='test/resources/documents'
     untrusted = os.getenv('DOCRIVER_UNTRUSTED_ROOT')
 
     app = init_app()
@@ -76,10 +68,11 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
     # print("args:", saved_args)
     if inline.startswith('file:'):
         filename = inline[inline.find(':')+1:]
+        full_path = os.path.join('test/resources/documents', TEST_REALM ,filename)
         if encoding == 'base64':            
-            inline = to_base64(filename)
+            inline = to_base64(full_path)
         else:
-            with open(filename, "r") as file:
+            with open(full_path, "r") as file:
                 inline = file.read()
     # print(inline)
     return {
@@ -104,6 +97,28 @@ def submit_inline_doc(client, parameters):
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
+def path_doc(path, tx, doc, mime_type):
+    return {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': [
+            {
+                'document': doc,
+                'type': 'sample',
+                'content': {
+                    'mimeType': mime_type,
+                    'path': path
+                }
+            }
+        ]
+    }
+
+def submit_path_doc(client, parameters):
+    response = client.post('/tx', json=path_doc(*parameters),
+                           headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
+
 def test_health(client):
     response = client.get('/health')
     assert response.json['system'] == 'UP'
@@ -112,17 +127,28 @@ def test_health(client):
 @pytest.mark.parametrize("test_case, input, expected", [
     ('plain text', ('Hello world', '1', 'd001', None, 'text/plain'), (200, 'ok')),
     ('html', ('<body><b>Hello world</b></body>', '2', 'd002', None, 'text/html'), (200, 'ok')),
-    ('pdf', ('file:test/resources/documents/sample.pdf', '3', 'd003', 'base64', 'application/pdf'),(200, 'ok')),
-    ('jpg', ('file:test/resources/documents/sample.jpg', '4', 'd004', 'base64', 'image/jpeg'),(200, 'ok')),
-    ('m4v', ('file:test/resources/documents/sample.m4v', '5', 'd005', 'base64', 'video/mp4'),(200, 'ok')),
-    ('mp3', ('file:test/resources/documents/sample.mp3', '6', 'd006', 'base64', 'audio/mpeg'),(200, 'ok'))
+    ('pdf', ('file:sample.pdf', '3', 'd003', 'base64', 'application/pdf'),(200, 'ok')),
+    ('jpg', ('file:sample.jpg', '4', 'd004', 'base64', 'image/jpeg'),(200, 'ok')),
+    ('m4v', ('file:sample.m4v', '5', 'd005', 'base64', 'video/mp4'),(200, 'ok')),
+    ('mp3', ('file:sample.mp3', '6', 'd006', 'base64', 'audio/mpeg'),(200, 'ok'))
     ]
 )
-def test_encodings(cleanup, client, test_case, input, expected):
+def test_inline_document_submission(cleanup, client, test_case, input, expected):
     assert submit_inline_doc(client, input) == expected, test_case
 
 @pytest.mark.parametrize("test_case, input, expected", [
-    ('virus', ('file:test/resources/documents/eicar.txt', '1', 'v001', None, 'text/plain'), (400, 'Virus check failed on file'))])
-def test_virus(cleanup, client, test_case, input, expected):
+    ('virus', ('file:eicar.txt', '1', 'v001', None, 'text/plain'), (400, 'Virus check failed on file'))])
+def test_document_with_virus(cleanup, client, test_case, input, expected):
     result = submit_inline_doc(client, input)
-    assert expected[0] == result[0] and result[1].startswith(expected[1]), test_case 
+    assert expected[0] == result[0] and result[1].startswith(expected[1]), test_case
+
+# The parameters are (test_name, (inline_text, tx, document, mime_type), (expected_http_status, expected_dr_status))
+@pytest.mark.parametrize("test_case, input, expected", [
+    ('pdf', ('sample.pdf', '1', 'p001', 'application/pdf'),(200, 'ok')),
+    ('jpg', ('sample.jpg', '2', 'p002', 'image/jpeg'),(200, 'ok')),
+    ('m4v', ('sample.m4v', '3', 'p003', 'video/mp4'),(200, 'ok')),
+    ('mp3', ('sample.mp3', '4', 'p004', 'audio/mpeg'),(200, 'ok'))
+    ]
+)
+def test_path_document_submission(cleanup, client, test_case, input, expected):
+    assert submit_path_doc(client, input) == expected, test_case
