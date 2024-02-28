@@ -92,7 +92,19 @@ def path_docs(tx, doc_prefix, exclude = None):
     return tx
 
 def submit_path_docs(client, tx, doc_prefix, exclude=None):
-    response = client.post('/tx', json=path_docs(tx, doc_prefix, exclude),
+    message=path_docs(tx, doc_prefix, exclude)
+    response = client.post('/tx', json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
-    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
+
+def assert_location(minio, location):
+    splits = location.split(':')
+    assert 3 == len(splits)
+    assert 'minio' == splits[0]
+    assert 'docriver'== splits[1]
+    iter = minio.list_objects('docriver', prefix=splits[2])
+    count = 0
+    for obj in iter:
+        count = count + 1
+    assert 1 == count

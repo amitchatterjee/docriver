@@ -1,7 +1,7 @@
 import pytest
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
-from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs
+from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location
 
 def test_health(client):
     response = client.get('/health')
@@ -18,7 +18,7 @@ def test_health(client):
     ]
 )
 def test_inline_document_submission(cleanup, client, test_case, input, expected):
-    assert submit_inline_doc(client, input) == expected, test_case
+    assert expected == submit_inline_doc(client, input), test_case
 
 @pytest.mark.parametrize("test_case, input, expected", [
     ('virus', ('file:eicar.txt', '1', 'v001', None, 'text/plain'), (400, 'Virus check failed on file'))])
@@ -35,13 +35,49 @@ def test_document_with_virus(cleanup, client, test_case, input, expected):
     ]
 )
 def test_path_document_submission(cleanup, client, test_case, input, expected):
-    assert submit_path_doc(client, input) == expected, test_case
+    assert expected == submit_path_doc(client, input), test_case
 
 def test_multi_docs_submission_with_virus(cleanup, client):
     result = submit_path_docs(client, '1', 'doc-')
-    assert result[0] == 400
+    assert 400 == result[0]
     assert result[1].startswith('Virus check failed on file')
 
 def test_multi_docs_submission(cleanup, client):
-    assert submit_path_docs(client, '1', 'doc-', exclude='eicar.txt') == (200, 'ok')
-    
+    assert 200, 'ok' == submit_path_docs(client, '1', 'doc-', exclude='eicar.txt')[0:2]
+
+def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio, client):
+    result = submit_path_docs(client, '1', 'doc-', exclude='eicar.txt')
+    assert 200, 'ok' == result[0:2]
+    response = result[2]
+
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+                SELECT t.TX, d.DOCUMENT, d.TYPE, d.MIME_TYPE,
+                       v.LOCATION_URL, e.STATUS, e.DESCRIPTION, e.REF_DOC_ID
+                FROM TX t, DOC d, DOC_VERSION v, DOC_EVENT e
+                WHERE
+                    d.ID = v.DOC_ID
+                    AND v.TX_ID = t.ID
+                    AND e.DOC_ID = d.ID
+                    AND e.REF_TX_ID = t.ID
+                ORDER BY DOCUMENT
+            """)
+        response['documents'].sort(key=lambda doc: doc['document'])
+        for i, row in enumerate(cursor):
+            assert row[0] == response['tx'], 'tx value mismatch'
+            assert row[1] == response['documents'][i]['document'], 'document name mismatch'
+            assert row[2] == response['documents'][i]['type'], 'document type mismatch'
+            # assert row[3] == response['documents'][i]['mimeType'], 'document mimetype mismatch'
+            assert 'I' == row[5]
+            assert 'INGESTION' == row[6]
+            assert not row[7]
+            assert_location(minio, row[4])
+        assert cursor.rowcount == len(response['documents'])
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
