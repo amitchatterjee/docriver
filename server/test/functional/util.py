@@ -17,7 +17,7 @@ def to_base64(filename):
         inline = base64.b64encode(file.read())
     return inline.decode('utf-8')
 
-def inline_doc(inline, tx, doc, encoding, mime_type):
+def inline_doc(inline, tx, doc, encoding, mime_type, replaces):
     # saved_args = locals()
     # print("args:", saved_args)
     if inline.startswith('file:'):
@@ -29,7 +29,7 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
             with open(full_path, "r") as file:
                 inline = file.read()
     # print(inline)
-    return {
+    payload = {
         'tx': tx,
         'realm': TEST_REALM,
         'documents': [
@@ -44,9 +44,12 @@ def inline_doc(inline, tx, doc, encoding, mime_type):
             }
         ]
     }
+    if replaces:
+        payload['documents'][0]['replaces'] = replaces
+    return payload
 
-def submit_inline_doc(client, parameters):
-    response = client.post('/tx', json=inline_doc(*parameters),
+def submit_inline_doc(client, parameters, replaces=None):
+    response = client.post('/tx', json=inline_doc(*parameters, replaces),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
@@ -98,6 +101,26 @@ def submit_path_docs(client, tx, doc_prefix, exclude=None):
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
 
+def ref_doc(tx, doc):
+    # saved_args = locals()
+    # print("args:", saved_args)
+    return {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': [
+            {
+                'document': doc,
+                'type': 'sample'
+            }
+        ]
+    }
+
+def submit_ref_doc(client, parameters):
+    response = client.post('/tx', json=ref_doc(*parameters),
+                           headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
+
 def assert_location(minio, location):
     splits = location.split(':')
     assert 3 == len(splits)
@@ -108,3 +131,12 @@ def assert_location(minio, location):
     for obj in iter:
         count = count + 1
     assert 1 == count
+
+def exec_get_events(cursor, doc):
+    cursor.execute("""
+            SELECT e.STATUS, e.DESCRIPTION, e.REF_DOC_ID 
+            FROM DOC_EVENT e, DOC d
+            WHERE e.DOC_ID = d.ID
+                AND d.DOCUMENT = %(doc)s
+            ORDER BY e.ID
+        """, {'doc': doc})

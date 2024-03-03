@@ -209,7 +209,7 @@ def write_metadata(connection, bucket, payload):
                     if self_replace:
                         create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
                     else:
-                        create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, 'REPLACEMENT', 'R')
+                        create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
             else:
                 # Reference to an existing document
                 doc_and_version = get_doc_and_version_by_name(cursor, document['document'])

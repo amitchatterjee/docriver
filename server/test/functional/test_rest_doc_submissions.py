@@ -1,7 +1,7 @@
 import pytest
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
-from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location
+from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc
 
 def test_health(client):
     response = client.get('/health')
@@ -76,6 +76,125 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
             assert not row[7]
             assert_location(minio, row[4])
         assert cursor.rowcount == len(response['documents'])
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
+
+def test_document_replacement(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert 200,'ok' == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
+    assert 200,'ok' == result
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+                SELECT d.ID, d.DOCUMENT,
+                    (SELECT d2.DOCUMENT FROM DOC d2 WHERE d.REPLACES_DOC_ID = d2.ID) AS REPLACES_DOCUMENT
+                FROM DOC d
+                WHERE d.DOCUMENT = %(doc)s 
+            """,
+        {'doc': 'd002'})
+        count = 0
+        for id, document, replaces_document in cursor:
+            assert 'd002' == document
+            assert 'd001' == replaces_document
+            count = count+1
+        assert count == 1
+
+        exec_get_events(cursor, 'd001')
+        rows = []
+        for row in cursor:
+            rows.append(row)
+        assert 2 == len(rows)
+        assert rows[0] == ('I', 'INGESTION', None)
+        assert rows[1][0:2] == ('R', 'REPLACEMENT')
+        assert rows[1][2] != None
+
+        exec_get_events(cursor, 'd002')
+        rows = []
+        for row in cursor:
+            rows.append(row)
+        assert 1 == len(rows)
+        assert rows[0] == ('I', 'INGESTION', None)
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
+
+
+def test_new_version(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert 200,'ok' == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd001', 'base64', 'application/pdf'), replaces='d001')
+    assert 200,'ok' == result
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+                SELECT d.ID, d.DOCUMENT,
+                    (SELECT d2.DOCUMENT FROM DOC d2 WHERE d.REPLACES_DOC_ID = d2.ID) AS REPLACES_DOCUMENT
+                FROM DOC d
+                WHERE d.DOCUMENT = %(doc)s 
+            """,
+        {'doc': 'd001'})
+        count = 0
+        for id, document, replaces_document in cursor:
+            assert 'd001' == document
+            assert None == replaces_document
+            count = count+1
+        assert count == 1
+        
+        exec_get_events(cursor, 'd001')
+        rows = []
+        for row in cursor:
+            rows.append(row)
+        assert rows == [('I', 'INGESTION', None), ('V', 'NEW_VERSION', None), ('I', 'INGESTION', None)]
+
+        cursor.execute("""
+                SELECT LOCATION_URL
+                FROM DOC_VERSION
+                ORDER BY ID 
+            """)
+        count = 0
+        for row in cursor:
+            count = count+1
+        assert 2 == count
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
+   
+def test_ref_document(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert 200,'ok' == result
+    result = submit_ref_doc(client, ('2', 'd001'))
+    assert 200,'ok' == result
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+                SELECT LOCATION_URL
+                FROM DOC_VERSION
+                ORDER BY ID 
+            """)
+        count = 0
+        for row in cursor:
+            count = count+1
+        assert 1 == count
+
+        exec_get_events(cursor, 'd001')
+        rows = []
+        for row in cursor:
+            rows.append(row)
+        assert rows == [('I', 'INGESTION', None), ('J', 'REFERENCE', None)]
     finally:
         if cursor:
             cursor.close()
