@@ -23,7 +23,7 @@ source ~/docriver-venv/bin/activate
 pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep clamd
 
 # Install pytest
-pip install -U pytest
+pip install -U pytest pytest-cov
 
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
@@ -85,7 +85,10 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 # Run tests
 #######################################################
 cd $DOCRIVER_GW_HOME/server
-python -m pytest -rPX
+python -m pytest --cov -rPX -vv
+
+# Run one test
+python -m pytest --rootdir=$HOME/git/docriver/server --cov -rPX -vv 'test/functional/test_rest_doc_submissions.py::test_ref_document'
 
 #######################################################
 # Virus Scan

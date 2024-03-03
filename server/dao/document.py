@@ -49,7 +49,8 @@ def create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, event_description, 
 
 def get_doc_and_version_by_name(cursor, name):
     cursor.execute("""
-                   SELECT MAX(v.ID) AS VERSION_ID, v.DOC_ID 
+                   SELECT MAX(v.ID) AS VERSION_ID, v.DOC_ID,
+                    (SELECT d2.ID FROM DOC d2 WHERE d2.REPLACES_DOC_ID = d.ID) AS REPLACED_BY
                     FROM DOC_VERSION v, DOC d
                     WHERE d.ID = v.DOC_ID 
                         AND d.DOCUMENT = %(doc)s 
@@ -60,16 +61,32 @@ def get_doc_and_version_by_name(cursor, name):
     if row:
         return {
             'doc': row[1],
-            'version': row[0]
+            'version': row[0],
+            'replacedBy': row[2]
         }
     return None
     
 def get_doc_by_name(cursor, name):
+    # The query used below will not work if we want to find other document status. Example: if the document has been deleted. For that, we need to look at DOC_EVENT using a query similar to the one below:
+    '''
+    SELECT d.ID,
+    (SELECT MAX(e.ID) FROM DOC_EVENT e WHERE e.DOC_ID = d.ID GROUP BY e.DOC_ID) AS EVENT_ID,
+    (SELECT e2.STATUS FROM DOC_EVENT e2 WHERE e2.ID = EVENT_ID) AS STATUS
+    FROM DOC d
+    WHERE
+        d.DOCUMENT = %(name)s
+    HAVING STATUS <> 'R';
+    '''
+
     cursor.execute("""
-                        SELECT ID FROM DOC WHERE DOCUMENT = %(name)s
-                        """, 
-                        {"name": name})
+        SELECT d.ID, 
+            (SELECT d2.ID FROM DOC d2 WHERE d2.REPLACES_DOC_ID = d.ID) AS REPLACED_BY
+        FROM DOC d
+        WHERE
+            d.DOCUMENT = %(name)s
+        """, 
+        {"name": name})
     row = cursor.fetchone()
     if row:
-        return row[0]
+        return row
     return None

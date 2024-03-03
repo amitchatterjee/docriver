@@ -1,3 +1,5 @@
+-- TODO change all timestamps to TIMESTAMP(6) for milliseconds precision
+
 CREATE DATABASE IF NOT EXISTS docriver;
 -- CREATE USER 'docriver'@'%' IDENTIFIED BY 'docriver';
 -- CREATE USER 'docriver'@'localhost' IDENTIFIED BY 'docriver';

@@ -187,12 +187,9 @@ def write_metadata(connection, bucket, payload):
             if 'dr:stageFilename' in document:
                 replaces_doc_id = None
                 if 'replaces' in document:
-                    # Reference to an existing document
-
-                    # TODO if the document has already been replaced, we should not allow a replacement
-                    replaces_doc_id = get_doc_by_name(cursor, document['replaces'])
-                    if replaces_doc_id == None:
-                        raise ValidationException('Non-existent replacement document: {}'.format(document['replaces']))
+                    replaces_doc_id, replaced_by = get_doc_by_name(cursor, document['replaces'])
+                    if replaces_doc_id == None or replaced_by != None:
+                        raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
                     if document['replaces'] == document['document']:
                         # if the document is replacing self
@@ -212,10 +209,10 @@ def write_metadata(connection, bucket, payload):
                         create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
             else:
                 # Reference to an existing document
-                doc_and_version = get_doc_and_version_by_name(cursor, document['document'])
-                if doc_and_version == None:
-                    raise ValidationException("Document: {} not found".format(document['document']))
-                doc_id, version_id = doc_and_version['doc'], doc_and_version['version']
+                doc_version = get_doc_and_version_by_name(cursor, document['document'])
+                if doc_version == None or doc_version['replacedBy'] != None:
+                    raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
+                doc_id, version_id = doc_version['doc'], doc_version['version']
 
             create_doc_event(cursor, tx_id, doc_id, None, 
                              'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
