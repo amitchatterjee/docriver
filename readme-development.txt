@@ -15,6 +15,7 @@ python -m venv docriver-venv
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
 export DOCRIVER_GW_HOME=$HOME/git/docriver
+
 source $DOCRIVER_GW_HOME/env.sh
 source ~/docriver-venv/bin/activate
 # Exit the shell and create a new one before continuing further
@@ -88,7 +89,8 @@ cd $DOCRIVER_GW_HOME/server
 python -m pytest --cov -rPX -vv
 
 # Run one test
-python -m pytest --rootdir=$HOME/git/docriver/server --cov -rPX -vv 'test/functional/test_rest_doc_submissions.py::test_ref_document'
+cd $DOCRIVER_GW_HOME/server
+python -m pytest --cov -rPX -vv 'test/functional/test_rest_doc_submissions.py::test_ref_document'
 
 #######################################################
 # Virus Scan

@@ -1,4 +1,4 @@
-export DOCRIVER_GW_HOME=$HOME/git/docriver
+export DOCRIVER_GW_HOME=$HOME/git/docriver-gateway
 export DOCRIVER_MYSQL_USER=docriver
 export DOCRIVER_MYSQL_PASSWORD=docriver
 export DOCRIVER_MYSQL_ROOT_PASSWORD=docriver

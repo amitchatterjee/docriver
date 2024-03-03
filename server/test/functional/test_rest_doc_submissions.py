@@ -17,12 +17,12 @@ def test_health(client):
     ('mp3', ('file:sample.mp3', '6', 'd006', 'base64', 'audio/mpeg'),(200, 'ok'))
     ]
 )
-def test_inline_document_submission(cleanup, client, test_case, input, expected):
+def test_inline_doc_submission(cleanup, client, test_case, input, expected):
     assert expected == submit_inline_doc(client, input), test_case
 
 @pytest.mark.parametrize("test_case, input, expected", [
     ('virus', ('file:eicar.txt', '1', 'v001', None, 'text/plain'), (400, 'Virus check failed on file'))])
-def test_document_with_virus(cleanup, client, test_case, input, expected):
+def test_infected_doc_submission(cleanup, client, test_case, input, expected):
     result = submit_inline_doc(client, input)
     assert expected[0] == result[0] and result[1].startswith(expected[1]), test_case
 
@@ -34,10 +34,10 @@ def test_document_with_virus(cleanup, client, test_case, input, expected):
     ('mp3', ('sample.mp3', '4', 'p004', 'audio/mpeg'),(200, 'ok'))
     ]
 )
-def test_path_document_submission(cleanup, client, test_case, input, expected):
+def test_path_doc_submission(cleanup, client, test_case, input, expected):
     assert expected == submit_path_doc(client, input), test_case
 
-def test_multi_docs_submission_with_virus(cleanup, client):
+def test_infected_multi_docs_submission(cleanup, client):
     result = submit_path_docs(client, '1', 'doc-')
     assert 400 == result[0]
     assert result[1].startswith('Virus check failed on file')
@@ -82,7 +82,7 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
         if connection.is_connected():
             connection.close()
 
-def test_document_replacement(cleanup, connection_pool, client):
+def test_doc_replacement(cleanup, connection_pool, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
     assert 200,'ok' == result
     result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
@@ -171,7 +171,7 @@ def test_new_version(cleanup, connection_pool, client):
         if connection.is_connected():
             connection.close()
    
-def test_ref_document(cleanup, connection_pool, client):
+def test_ref_doc(cleanup, connection_pool, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
     assert 200,'ok' == result
     result = submit_ref_doc(client, ('2', 'd001'))
@@ -200,3 +200,11 @@ def test_ref_document(cleanup, connection_pool, client):
             cursor.close()
         if connection.is_connected():
             connection.close()
+
+def test_doc_with_replaced_ref(cleanup, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert 200,'ok' == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
+    assert 200,'ok' == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '3', 'd003', 'base64', 'application/pdf'), replaces='d001')
+    assert 400 == result[0]
