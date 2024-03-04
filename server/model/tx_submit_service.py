@@ -187,8 +187,8 @@ def write_metadata(connection, bucket, payload):
             if 'dr:stageFilename' in document:
                 replaces_doc_id = None
                 if 'replaces' in document:
-                    replaces_doc_id, replaced_by = get_doc_by_name(cursor, document['replaces'])
-                    if replaces_doc_id == None or replaced_by != None:
+                    replaces_doc_id, replaces_doc_status = get_doc_by_name(cursor, document['replaces'])
+                    if replaces_doc_id == None or replaces_doc_status == 'R':
                         raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
                     if document['replaces'] == document['document']:
@@ -198,7 +198,7 @@ def write_metadata(connection, bucket, payload):
 
                 if not self_replace:
                     # If the document has not already been created (replacing self case)
-                    doc_id = create_doc(cursor, document, replaces_doc_id)
+                    doc_id = create_doc(cursor, document)
 
                 version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document))
 
@@ -210,7 +210,7 @@ def write_metadata(connection, bucket, payload):
             else:
                 # Reference to an existing document
                 doc_version = get_doc_and_version_by_name(cursor, document['document'])
-                if doc_version == None or doc_version['replacedBy'] != None:
+                if doc_version == None or doc_version['status'] == 'R':
                     raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
                 doc_id, version_id = doc_version['doc'], doc_version['version']
 

@@ -92,16 +92,14 @@ def test_doc_replacement(cleanup, connection_pool, client):
     try:
         cursor = connection.cursor()
         cursor.execute("""
-                SELECT d.ID, d.DOCUMENT,
-                    (SELECT d2.DOCUMENT FROM DOC d2 WHERE d.REPLACES_DOC_ID = d2.ID) AS REPLACES_DOCUMENT
+                SELECT d.ID, d.DOCUMENT
                 FROM DOC d
                 WHERE d.DOCUMENT = %(doc)s 
             """,
         {'doc': 'd002'})
         count = 0
-        for id, document, replaces_document in cursor:
+        for id, document, in cursor:
             assert 'd002' == document
-            assert 'd001' == replaces_document
             count = count+1
         assert count == 1
 
@@ -137,16 +135,14 @@ def test_new_version(cleanup, connection_pool, client):
     try:
         cursor = connection.cursor()
         cursor.execute("""
-                SELECT d.ID, d.DOCUMENT,
-                    (SELECT d2.DOCUMENT FROM DOC d2 WHERE d.REPLACES_DOC_ID = d2.ID) AS REPLACES_DOCUMENT
+                SELECT d.ID, d.DOCUMENT
                 FROM DOC d
                 WHERE d.DOCUMENT = %(doc)s 
             """,
         {'doc': 'd001'})
         count = 0
-        for id, document, replaces_document in cursor:
+        for id, document in cursor:
             assert 'd001' == document
-            assert None == replaces_document
             count = count+1
         assert count == 1
         

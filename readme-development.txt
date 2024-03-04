@@ -15,13 +15,13 @@ python -m venv docriver-venv
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
 export DOCRIVER_GW_HOME=$HOME/git/docriver
-
+# Make changes to the env.sh file if needed
 source $DOCRIVER_GW_HOME/env.sh
 source ~/docriver-venv/bin/activate
 # Exit the shell and create a new one before continuing further
 
 # Install python dependencies
-pip install flask mysql-connector-python minio file-validator flask-accept flask-cors fleep clamd
+pip install -r $DOCRIVER_GW_HOME/docker/requirements.txt
 
 # Install pytest
 pip install -U pytest pytest-cov

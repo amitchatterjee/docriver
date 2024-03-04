@@ -1,0 +1,8 @@
+flask
+mysql-connector-python
+minio
+file-validator
+flask-accept
+flask-cors
+fleep
+clamd
