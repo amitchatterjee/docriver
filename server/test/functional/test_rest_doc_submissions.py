@@ -1,11 +1,15 @@
 import pytest
+import sys
+import os
+
+sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
 from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc
 
 def test_health(client):
     response = client.get('/health')
-    assert response.json['system'] == 'UP'
+    assert 'UP' == response.json['system']
 
 # The parameters are (test_name, (inline_text, tx, document, encoding, mime_type), (expected_http_status, expected_dr_status))
 @pytest.mark.parametrize("test_case, input, expected", [
@@ -43,11 +47,11 @@ def test_infected_multi_docs_submission(cleanup, client):
     assert result[1].startswith('Virus check failed on file')
 
 def test_multi_docs_submission(cleanup, client):
-    assert 200, 'ok' == submit_path_docs(client, '1', 'doc-', exclude='eicar.txt')[0:2]
+    assert (200, 'ok') == submit_path_docs(client, '1', 'doc-', exclude='eicar.txt')[0:2]
 
 def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio, client):
     result = submit_path_docs(client, '1', 'doc-', exclude='eicar.txt')
-    assert 200, 'ok' == result[0:2]
+    assert (200, 'ok') == result[0:2]
     response = result[2]
 
     connection = connection_pool.get_connection()
@@ -55,8 +59,8 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
     try:
         cursor = connection.cursor()
         cursor.execute("""
-                SELECT t.TX, d.DOCUMENT, d.TYPE, d.MIME_TYPE,
-                       v.LOCATION_URL, e.STATUS, e.DESCRIPTION, e.REF_DOC_ID
+                SELECT t.TX, d.DOCUMENT,
+                       v.TYPE, v.MIME_TYPE, v.LOCATION_URL, e.STATUS, e.DESCRIPTION, e.REF_DOC_ID
                 FROM TX t, DOC d, DOC_VERSION v, DOC_EVENT e
                 WHERE
                     d.ID = v.DOC_ID
@@ -84,9 +88,9 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
 
 def test_doc_replacement(cleanup, connection_pool, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     connection = connection_pool.get_connection()
     cursor = None
     try:
@@ -127,9 +131,9 @@ def test_doc_replacement(cleanup, connection_pool, client):
 
 def test_new_version(cleanup, connection_pool, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd001', 'base64', 'application/pdf'), replaces='d001')
-    assert 200,'ok' == result
+    assert (200,'ok') == result 
     connection = connection_pool.get_connection()
     cursor = None
     try:
@@ -150,7 +154,7 @@ def test_new_version(cleanup, connection_pool, client):
         rows = []
         for row in cursor:
             rows.append(row)
-        assert rows == [('I', 'INGESTION', None), ('V', 'NEW_VERSION', None), ('I', 'INGESTION', None)]
+        assert [('I', 'INGESTION', None), ('V', 'NEW_VERSION', None), ('I', 'INGESTION', None)] == rows
 
         cursor.execute("""
                 SELECT LOCATION_URL
@@ -169,9 +173,9 @@ def test_new_version(cleanup, connection_pool, client):
    
 def test_ref_doc(cleanup, connection_pool, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     result = submit_ref_doc(client, ('2', 'd001'))
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     connection = connection_pool.get_connection()
     cursor = None
     try:
@@ -190,7 +194,7 @@ def test_ref_doc(cleanup, connection_pool, client):
         rows = []
         for row in cursor:
             rows.append(row)
-        assert rows == [('I', 'INGESTION', None), ('J', 'REFERENCE', None)]
+        assert [('I', 'INGESTION', None), ('J', 'REFERENCE', None)] == rows
     finally:
         if cursor:
             cursor.close()
@@ -199,8 +203,8 @@ def test_ref_doc(cleanup, connection_pool, client):
 
 def test_doc_with_replaced_ref(cleanup, client):
     result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
-    assert 200,'ok' == result
+    assert (200,'ok') == result
     result = submit_inline_doc(client, ('file:sample.pdf', '3', 'd003', 'base64', 'application/pdf'), replaces='d001')
     assert 400 == result[0]

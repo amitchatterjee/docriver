@@ -4,6 +4,7 @@ import argparse
 import logging
 import clamd
 import sys
+import os
 
 from controller.http import init_app, init_params
 

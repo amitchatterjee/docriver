@@ -17,7 +17,7 @@ import re
 
 from exceptions import ValidationException
 from dao.tx import create_tx, create_tx_event
-from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_and_version_by_name, get_doc_by_name
+from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_by_name
 from model.file_validator import validate_documents
 
 def current_time_ms():
@@ -182,37 +182,37 @@ def write_metadata(connection, bucket, payload):
         
         documents = payload['documents']
         for document in documents:
-            doc_id = None
-            self_replace = False
+            doc_id, version_id, doc_status = get_doc_by_name(cursor, document['document'])            
+
             if 'dr:stageFilename' in document:
-                replaces_doc_id = None
+                new_version = 'replaces' in document and document['replaces'] == document['document']
+
+                if not new_version and doc_id and doc_status != 'R':
+                    raise ValidationException('The document already exists')
+            
                 if 'replaces' in document:
-                    replaces_doc_id, replaces_doc_status = get_doc_by_name(cursor, document['replaces'])
-                    if replaces_doc_id == None or replaces_doc_status == 'R':
-                        raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
+                    replaces_doc_id = None
+                    if document['replaces'] != document['document']:
+                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, document['replaces'])
+                        if replaces_doc_id == None or replaces_doc_status == 'R':
+                            raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
-                    if document['replaces'] == document['document']:
-                        # if the document is replacing self
-                        self_replace = True
-                        doc_id = replaces_doc_id
-
-                if not self_replace:
-                    # If the document has not already been created (replacing self case)
+                if not doc_id:
+                    # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
                     doc_id = create_doc(cursor, document)
 
-                version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document))
+                version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
 
-                if replaces_doc_id:
-                    if self_replace:
+                if 'replaces' in document:
+                    if new_version:
+                        # Self replacement
                         create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
                     else:
                         create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
             else:
                 # Reference to an existing document
-                doc_version = get_doc_and_version_by_name(cursor, document['document'])
-                if doc_version == None or doc_version['status'] == 'R':
+                if not doc_id or doc_status == 'R':
                     raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
-                doc_id, version_id = doc_version['doc'], doc_version['version']
 
             create_doc_event(cursor, tx_id, doc_id, None, 
                              'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 

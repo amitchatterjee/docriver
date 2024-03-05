@@ -7,6 +7,12 @@ from main import init_db, init_obj_store, init_virus_scanner
 
 TEST_REALM = 'test123456'
 
+def raw_dir():
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/documents'))
+
+def untrusted_dir():
+    return os.getenv('DOCRIVER_UNTRUSTED_ROOT')
+
 def delete_obj_recursively(minio, bucketname, folder):
     objs = minio.list_objects(bucketname, prefix=folder, recursive=True)
     for obj in objs:
@@ -22,7 +28,7 @@ def inline_doc(inline, tx, doc, encoding, mime_type, replaces):
     # print("args:", saved_args)
     if inline.startswith('file:'):
         filename = inline[inline.find(':')+1:]
-        full_path = os.path.join('test/resources/documents', TEST_REALM ,filename)
+        full_path = os.path.join(raw_dir(), TEST_REALM ,filename)
         if encoding == 'base64':            
             inline = to_base64(full_path)
         else:
@@ -82,7 +88,7 @@ def path_docs(tx, doc_prefix, exclude = None):
         'realm': TEST_REALM,
         'documents': []
     }
-    for i, file in enumerate(os.listdir(os.path.join('test/resources/documents', TEST_REALM))):
+    for i, file in enumerate(os.listdir(os.path.join(raw_dir(), TEST_REALM))):
         if exclude and file == exclude:
             continue
         tx['documents'].append({

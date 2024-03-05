@@ -85,12 +85,35 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 #######################################################
 # Run tests
 #######################################################
-cd $DOCRIVER_GW_HOME/server
+cd $DOCRIVER_GW_HOME
+# Run all tests
 python -m pytest --cov -rPX -vv
-
 # Run one test
-cd $DOCRIVER_GW_HOME/server
-python -m pytest --cov -rPX -vv 'test/functional/test_rest_doc_submissions.py::test_ref_document'
+python -m pytest --cov -rPX -vv 'server/test/functional/test_rest_doc_submissions.py::test_ref_document'
+
+# Install and setup debugger
+pip install debugpy
+
+# Add debug configuration (.vscode/launch.json)
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: Attach",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+              "host": "localhost",
+              "port": 5678
+            }
+          }
+    ]
+}
+
+python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest --cov -rPX -vv 
 
 #######################################################
 # Virus Scan

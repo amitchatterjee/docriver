@@ -22,20 +22,20 @@ def create_references(cursor, references, version_id):
 
 def create_doc(cursor, document):
     cursor.execute(("""
-                    INSERT INTO DOC (DOCUMENT, TYPE, MIME_TYPE) 
-                    VALUES (%s, %s, %s)
+                    INSERT INTO DOC (DOCUMENT) 
+                    VALUES (%s)
                     """), 
-                    (document['document'],  
-                    document['type'], 
-                    document['content']['mimeType']))
+                    (document['document'], ))
     return cursor.lastrowid
 
-def create_doc_version(bucket, cursor, tx_id, doc_id, doc_key):
+def create_doc_version(bucket, cursor, tx_id, doc_id, doc_key, document):
     cursor.execute(("""
-                    INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL)
-                    VALUES(%s, %s, %s)
+                    INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL, TYPE, MIME_TYPE)
+                    VALUES(%s, %s, %s, %s, %s)
                     """), 
-                    (doc_id, tx_id, "minio:{}:{}".format(bucket, doc_key)))
+                    (doc_id, tx_id, "minio:{}:{}".format(bucket, doc_key),  
+                    document['type'], 
+                    document['content']['mimeType']))
     return cursor.lastrowid
 
 def create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, event_description, status):
@@ -45,38 +45,21 @@ def create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, event_description, 
                     """), 
                     (event_description, status, doc_id, replaces_doc_id, tx_id))
     return cursor.lastrowid
-
-def get_doc_and_version_by_name(cursor, name):
-    cursor.execute("""
-                    SELECT MAX(v.ID) AS VERSION_ID, v.DOC_ID,
-                        (SELECT MAX(e.ID) FROM DOC_EVENT e WHERE e.DOC_ID = d.ID GROUP BY e.DOC_ID) AS EVENT_ID,
-                        (SELECT e2.STATUS FROM DOC_EVENT e2 WHERE e2.ID = EVENT_ID) AS STATUS
-                    FROM DOC_VERSION v, DOC d
-                    WHERE d.ID = v.DOC_ID 
-                        AND d.DOCUMENT = %(doc)s 
-                    GROUP BY DOC_ID
-                    """, 
-                    {'doc': name})
-    row = cursor.fetchone()
-    if row:
-        return {
-            'doc': row[1],
-            'version': row[0],
-            'status': row[3]
-        }
-    return None
     
 def get_doc_by_name(cursor, name):
     cursor.execute("""
         SELECT d.ID,
+            MAX(v.ID) AS VERSION_ID,
             (SELECT MAX(e.ID) FROM DOC_EVENT e WHERE e.DOC_ID = d.ID GROUP BY e.DOC_ID) AS EVENT_ID,
             (SELECT e2.STATUS FROM DOC_EVENT e2 WHERE e2.ID = EVENT_ID) AS STATUS
-        FROM DOC d
+        FROM DOC d, DOC_VERSION v
         WHERE
-            d.DOCUMENT = %(name)s
+            d.ID = v.DOC_ID
+            AND d.DOCUMENT = %(name)s
+        GROUP BY d.ID
         """, 
         {"name": name})
     row = cursor.fetchone()
     if row:
-        return row[0], row[2]
-    return None
+        return row[0], row[1], row[3]
+    return (None, None, None)

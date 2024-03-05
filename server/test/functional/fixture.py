@@ -3,7 +3,8 @@ import pytest
 import logging
 from controller.http import init_app, init_params
 from main import init_db, init_obj_store, init_virus_scanner
-from test.functional.util import delete_obj_recursively, TEST_REALM
+from test.functional.util import delete_obj_recursively, TEST_REALM, raw_dir, untrusted_dir
+
 
 @pytest.fixture(scope="session", autouse=True)
 def connection_pool():
@@ -24,12 +25,9 @@ def scanner():
 @pytest.fixture(scope="session", autouse=True)
 def client(connection_pool, minio, scanner):
     logging.getLogger().setLevel('INFO')
-    raw='test/resources/documents'
-    untrusted = os.getenv('DOCRIVER_UNTRUSTED_ROOT')
-
     app = init_app()
     app.config['TESTING'] = True
-    init_params(connection_pool, minio, scanner, 'docriver', untrusted, raw, '/scandir')
+    init_params(connection_pool, minio, scanner, 'docriver', untrusted_dir(), raw_dir(), '/scandir')
 
     with app.test_client() as client:
         yield client
