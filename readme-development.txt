@@ -113,7 +113,8 @@ pip install debugpy
     ]
 }
 
-python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest --cov -rPX -vv 
+# Don't use the --cov option as this modifies the complied code and as a result, breakpoints won't hit
+python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest -rPX -vv 
 
 #######################################################
 # Virus Scan

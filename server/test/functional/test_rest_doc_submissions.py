@@ -208,3 +208,44 @@ def test_doc_with_replaced_ref(cleanup, client):
     assert (200,'ok') == result
     result = submit_inline_doc(client, ('file:sample.pdf', '3', 'd003', 'base64', 'application/pdf'), replaces='d001')
     assert 400 == result[0]
+
+def test_new_doc_after_doc_replacement(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '3', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+                SELECT d.DOCUMENT, e.STATUS
+                FROM DOC d, DOC_EVENT e
+                WHERE e.DOC_ID = d.ID
+                ORDER BY d.ID; 
+            """)
+        count = 0
+        rows = []
+        for row in cursor:
+            rows.append(row)
+            count = count+1
+        assert 4 == count
+        assert [('d001', 'I'), ('d001', 'R'), ('d001', 'I'), ('d002', 'I')] == rows
+
+        cursor.execute("""
+                SELECT v.LOCATION_URL
+                FROM DOC d, DOC_VERSION v
+                WHERE v.DOC_ID = d.ID
+                    AND d.DOCUMENT = %(doc)s; 
+            """, {'doc': 'd001'})
+        count = 0
+        for row in cursor:
+            count = count+1
+        assert 2 == count
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
