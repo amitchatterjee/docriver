@@ -187,14 +187,14 @@ def write_metadata(connection, bucket, payload):
             if 'dr:stageFilename' in document:
                 new_version = 'replaces' in document and document['replaces'] == document['document']
 
-                if not new_version and doc_id and doc_status != 'R':
+                if not new_version and doc_id and doc_status not in ['R', 'D']:
                     raise ValidationException('The document already exists')
             
                 if 'replaces' in document:
                     replaces_doc_id = None
                     if document['replaces'] != document['document']:
                         replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, document['replaces'])
-                        if replaces_doc_id == None or replaces_doc_status == 'R':
+                        if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
                             raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
                 if not doc_id:
@@ -211,7 +211,7 @@ def write_metadata(connection, bucket, payload):
                         create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
             else:
                 # Reference to an existing document
-                if not doc_id or doc_status == 'R':
+                if not doc_id or doc_status in ['R', 'D']:
                     raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
 
             create_doc_event(cursor, tx_id, doc_id, None, 
@@ -248,7 +248,7 @@ def format_result(start, payload, end):
     result.update(payload)
     return result
 
-def new_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):
+def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):
     start = current_time_ms()
     rest = request.content_type == 'application/json'
     payload = None

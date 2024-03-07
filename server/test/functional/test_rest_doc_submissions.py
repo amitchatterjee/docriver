@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
-from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc
+from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc, delete_docs
 
 def test_health(client):
     response = client.get('/health')
@@ -226,12 +226,9 @@ def test_new_doc_after_doc_replacement(cleanup, connection_pool, client):
                 WHERE e.DOC_ID = d.ID
                 ORDER BY d.ID; 
             """)
-        count = 0
         rows = []
         for row in cursor:
             rows.append(row)
-            count = count+1
-        assert 4 == count
         assert [('d001', 'I'), ('d001', 'R'), ('d001', 'I'), ('d002', 'I')] == rows
 
         cursor.execute("""
@@ -249,3 +246,39 @@ def test_new_doc_after_doc_replacement(cleanup, connection_pool, client):
             cursor.close()
         if connection.is_connected():
             connection.close()
+            
+def test_document_delete(cleanup, connection_pool, client):
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+        assert (200,'ok') == result
+        result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'))
+        assert (200,'ok') == result
+        result = delete_docs(client, '3', ['d001', 'd002'])
+        assert (200,'ok') == result[0:2]
+        
+        cursor = connection.cursor()
+        assert_doc_event(cursor, 'd001', [('I', 'INGESTION', None), ('D', 'DELETE', None)])
+        assert_doc_event(cursor, 'd002', [('I', 'INGESTION', None), ('D', 'DELETE', None)])
+        cursor.close()
+        connection.close()
+
+        result = submit_inline_doc(client, ('file:sample.pdf', '4', 'd001', 'base64', 'application/pdf'))
+        assert (200,'ok') == result
+        connection = connection_pool.get_connection()
+        cursor = connection.cursor()
+        assert_doc_event(cursor, 'd001', [('I', 'INGESTION', None), ('D', 'DELETE', None), ('I', 'INGESTION', None)])
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
+
+def assert_doc_event(cursor, doc, events):
+    exec_get_events(cursor, doc)
+    rows = []
+    for row in cursor:
+        rows.append(row)
+    assert len(events) == len(rows)
+    assert events == rows

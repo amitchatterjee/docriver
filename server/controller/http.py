@@ -1,24 +1,33 @@
 from flask import Flask, Blueprint, jsonify, request, send_from_directory
 from flask_cors import CORS
+from flask_accept import accept
 import logging
 import os
 
 from exceptions import ValidationException
-from model.tx_submit_service import new_tx
+from model.tx_submit_service import submit_docs_tx
+from model.tx_delete_service import delete_docs_tx
 from actuator.health import get_health
 from controller.html_utils import to_html
 
 gw = Blueprint('docriver-http', __name__)
 
 @gw.route('/tx', methods=['POST'])
-def process_new_tx():
-    result = new_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request)
+def process_submit_tx():
+    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request)
     if request.headers.get('Accept', default='text/html') == 'application/json':
         return jsonify(result), {'Content-Type': 'application/json'}
     else:
         # TODO use a jinja template
         # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
         return to_html(result, indent=1), 'text/html'
+
+@gw.route('/tx', methods=['DELETE'])
+@accept('application/json')
+def process_delete_tx():
+    payload = request.json
+    result = delete_docs_tx(payload, connection_pool)
+    return jsonify(result), {'Content-Type': 'application/json'}
 
 @gw.route('/favicon.ico')
 def favicon():

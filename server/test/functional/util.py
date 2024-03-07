@@ -23,7 +23,7 @@ def to_base64(filename):
         inline = base64.b64encode(file.read())
     return inline.decode('utf-8')
 
-def inline_doc(inline, tx, doc, encoding, mime_type, replaces):
+def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces):
     # saved_args = locals()
     # print("args:", saved_args)
     if inline.startswith('file:'):
@@ -55,12 +55,12 @@ def inline_doc(inline, tx, doc, encoding, mime_type, replaces):
     return payload
 
 def submit_inline_doc(client, parameters, replaces=None):
-    response = client.post('/tx', json=inline_doc(*parameters, replaces),
+    response = client.post('/tx', json=inline_doc_message(*parameters, replaces),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
-def path_doc(path, tx, doc, mime_type):
+def path_doc_message(path, tx, doc, mime_type):
     return {
         'tx': tx,
         'realm': TEST_REALM,
@@ -77,12 +77,12 @@ def path_doc(path, tx, doc, mime_type):
     }
 
 def submit_path_doc(client, parameters):
-    response = client.post('/tx', json=path_doc(*parameters),
+    response = client.post('/tx', json=path_doc_message(*parameters),
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
-def path_docs(tx, doc_prefix, exclude = None):
+def path_docs_message(tx, doc_prefix, exclude = None):
     tx = {
         'tx': tx,
         'realm': TEST_REALM,
@@ -101,7 +101,7 @@ def path_docs(tx, doc_prefix, exclude = None):
     return tx
 
 def submit_path_docs(client, tx, doc_prefix, exclude=None):
-    message=path_docs(tx, doc_prefix, exclude)
+    message=path_docs_message(tx, doc_prefix, exclude)
     response = client.post('/tx', json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
@@ -146,3 +146,21 @@ def exec_get_events(cursor, doc):
                 AND d.DOCUMENT = %(doc)s
             ORDER BY e.ID
         """, {'doc': doc})
+    
+def delete_docs(client, tx, docs):
+    message=delete_docs_message(tx, docs)
+    response = client.delete('/tx', json=message,
+        headers={'Accept': 'application/json'})
+    # print(response.status_code, response.data)
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
+
+def delete_docs_message(tx, docs):
+    message =  {
+        'tx': tx,
+        'realm': TEST_REALM,
+        'documents': [
+        ]
+    }
+    for doc in docs:
+        message['documents'].append({'document': doc}) 
+    return message
