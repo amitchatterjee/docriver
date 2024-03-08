@@ -1,15 +1,7 @@
 from dao.tx import create_tx, create_tx_event
 from dao.document import get_doc_by_name, create_doc_event
 from exceptions import ValidationException
-import time
-
-def current_time_ms():
-    return round(time.time() * 1000)
-
-def format_result(start, payload, end):
-    result = {'dr:status': 'ok', 'dr:took': end - start}
-    result.update(payload)
-    return result
+from model.common import current_time_ms, format_result_base
 
 def delete_docs_tx(payload, connection_pool):
     start = current_time_ms()
@@ -28,7 +20,7 @@ def delete_docs_tx(payload, connection_pool):
                 raise ValidationException('Document does not exist or has already been deleted/replaced')
             create_doc_event(cursor, tx_id, doc_id, None, 'DELETE', 'D')
         end = current_time_ms()
-        result = format_result(start, payload, end)
+        result = format_result_base(start, payload, end)
         connection.commit()
         return result
     except Exception as e:

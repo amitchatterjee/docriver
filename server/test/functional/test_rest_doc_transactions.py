@@ -275,6 +275,23 @@ def test_document_delete(cleanup, connection_pool, client):
         if connection.is_connected():
             connection.close()
 
+def test_document_delete_failed(cleanup, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd002', 'base64', 'application/pdf'), replaces='d001')
+    assert (200,'ok') == result
+
+    result = delete_docs(client, '3', ['d001'])
+    assert 400 == result[0]
+    assert 'Document does not exist or has already been deleted/replaced' == result[1]
+
+    result = delete_docs(client, '4', ['d002'])
+    assert (200,'ok') == result[0:2]
+    result = delete_docs(client, '5', ['d002'])
+    assert 400 == result[0]
+    assert 'Document does not exist or has already been deleted/replaced' == result[1]
+
+
 def assert_doc_event(cursor, doc, events):
     exec_get_events(cursor, doc)
     rows = []

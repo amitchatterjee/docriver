@@ -107,7 +107,7 @@ def submit_path_docs(client, tx, doc_prefix, exclude=None):
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
 
-def ref_doc(tx, doc):
+def ref_doc_message(tx, doc):
     # saved_args = locals()
     # print("args:", saved_args)
     return {
@@ -122,7 +122,7 @@ def ref_doc(tx, doc):
     }
 
 def submit_ref_doc(client, parameters):
-    response = client.post('/tx', json=ref_doc(*parameters),
+    response = client.post('/tx', json=ref_doc_message(*parameters),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
@@ -164,3 +164,14 @@ def delete_docs_message(tx, docs):
     for doc in docs:
         message['documents'].append({'document': doc}) 
     return message
+
+def submit_multipart_docs(client, tx, filenames):
+    files = []
+    for filename in filenames:
+        files.append((open(os.path.join(raw_dir(), TEST_REALM , filename), "rb"), filename))
+    response = client.post("/tx", data={
+        'tx': tx,
+        'realm': TEST_REALM,
+        'files': files,
+    }, headers={'Accept': 'application/json'})
+    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), response.json

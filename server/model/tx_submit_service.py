@@ -19,9 +19,7 @@ from exceptions import ValidationException
 from dao.tx import create_tx, create_tx_event
 from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_by_name
 from model.file_validator import validate_documents
-
-def current_time_ms():
-    return round(time.time() * 1000)
+from model.common import current_time_ms, format_result_base
 
 def get_payload_from_form(request):
     for uploaded_file in request.files.getlist('files'):
@@ -229,23 +227,14 @@ def write_metadata(connection, bucket, payload):
     finally:
         cursor.close()
 
-def format_result(start, payload, end):
-    result = {'dr:status': 'ok', 'dr:took': end - start}
-    for document in payload['documents']:
-        if 'content' in document and 'inline' in document['content']:
-            document['content']['inline'] = '<snipped>'
-    result.update(payload)
-    return result
-
 def stage_dirname(untrusted_file_mount):
     return "{}/{}".format(untrusted_file_mount, uuid.uuid1())
 
 def format_result(start, payload, end):
-    result = {'dr:status': 'ok', 'dr:took': end - start}
-    for document in payload['documents']:
+    result = format_result_base(start, payload, end)
+    for document in result['documents']:
         if 'content' in document and 'inline' in document['content']:
             document['content']['inline'] = '<snipped>'
-    result.update(payload)
     return result
 
 def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):

@@ -89,7 +89,7 @@ cd $DOCRIVER_GW_HOME
 # Run all tests
 python -m pytest --cov -rPX -vv
 # Run one test
-python -m pytest --cov -rPX -vv 'server/test/functional/test_rest_doc_submissions.py::test_ref_document'
+python -m pytest --cov -rPX -vv 'server/test/functional/test_rest_doc_transactions.py::test_ref_document'
 
 # Install and setup debugger
 pip install debugpy
