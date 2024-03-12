@@ -6,3 +6,5 @@ flask-accept
 flask-cors
 fleep
 clamd
+pyjwt
+
