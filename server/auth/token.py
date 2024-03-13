@@ -1,12 +1,18 @@
 import datetime
 import jwt
 
+from exceptions import ValidationException
+
 def issue(private_key, signer_cn, subject, audience, expires, resource, permissions):
     ts = datetime.datetime.utcnow()
     perms = {}
-    for permission in permissions:
-        parts = permission.split(':')
-        perms[parts[0]] = parts[1]
+    if isinstance(permissions, str):
+        for permission in permissions:
+            parts = permission.split(':')
+            perms[parts[0]] = parts[1]
+    else:
+        # Assume dictionary
+        perms = permissions
 
     payload = {
         'iss': signer_cn, 
@@ -21,11 +27,13 @@ def issue(private_key, signer_cn, subject, audience, expires, resource, permissi
     encoded = jwt.encode(payload, private_key, algorithm="RS256")
     return encoded,payload
 
-def validate(public_keys, token, audience):
+def decode(public_keys, token, audience):
     # Read the payload without verification in order to get the issuer information
     payload = jwt.decode(token, options={"verify_signature": False})
-    key = payload['iss']
-    public_key = public_keys[key]
+    issuer = payload['iss']
+    if issuer not in public_keys:
+        raise ValidationException('Issuer not found')
+    public_key = public_keys[issuer]
 
     # Verify signature to ensure that the issuer matches
-    return jwt.decode(token, public_key, algorithms=["RS256"], audience=audience)
+    return jwt.decode(token, public_key, algorithms=["RS256"], audience=audience), issuer

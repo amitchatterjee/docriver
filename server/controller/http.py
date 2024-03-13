@@ -4,7 +4,7 @@ from flask_accept import accept
 import logging
 import os
 
-from exceptions import ValidationException
+from exceptions import ValidationException, AuthorizationException
 from model.tx_submit_service import submit_docs_tx
 from model.tx_delete_service import delete_docs_tx
 from actuator.health import get_health
@@ -14,7 +14,7 @@ gw = Blueprint('docriver-http', __name__)
 
 @gw.route('/tx', methods=['POST'])
 def process_submit_tx():
-    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request)
+    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, request)
     if request.headers.get('Accept', default='text/html') == 'application/json':
         return jsonify(result), {'Content-Type': 'application/json'}
     else:
@@ -43,6 +43,10 @@ def health_status():
 def handle_validation_error(e):
     return str(e), 400
 
+@gw.errorhandler(AuthorizationException)
+def handle_authroization_error(e):
+    return str(e), 401
+
 @gw.errorhandler(Exception)
 def handle_internal_error(e):
     logging.error(e, exc_info=True)
@@ -54,7 +58,8 @@ def init_app():
     app.register_blueprint(gw)
     return app
 
-def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount):
+def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount, _auth_private_key, _auth_public_key, _auth_signer_cert, _auth_signer_cn, _auth_public_keys, _auth_audience):
+    # TODO this is getting ugly fast. Fixit
     global minio
     global connection_pool
     global scanner
@@ -62,6 +67,12 @@ def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount
     global untrusted_fs_mount
     global raw_fs_mount
     global scanner_fs_mount
+    global auth_private_key
+    global auth_public_key
+    global auth_signer_cert
+    global auth_signer_cn
+    global auth_public_keys
+    global auth_audience
 
     minio = _minio
     connection_pool = _connection_pool
@@ -70,3 +81,9 @@ def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount
     untrusted_fs_mount = _untrusted_fs_mount
     raw_fs_mount = _raw_fs_mount
     scanner_fs_mount = _scanner_fs_mount
+    auth_private_key = _auth_private_key
+    auth_public_key = _auth_public_key
+    auth_signer_cert = _auth_signer_cert
+    auth_signer_cn = _auth_signer_cn
+    auth_public_keys = _auth_public_keys
+    auth_audience = _auth_audience

@@ -20,6 +20,7 @@ from dao.tx import create_tx, create_tx_event
 from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_by_name
 from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
+from model.authorizer import authorize
 
 def get_payload_from_form(request):
     for uploaded_file in request.files.getlist('files'):
@@ -237,7 +238,7 @@ def format_result(start, payload, end):
             document['content']['inline'] = '<snipped>'
     return result
 
-def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, request):
+def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, public_keys, audience, request):
     start = current_time_ms()
     rest = request.content_type == 'application/json'
     payload = None
@@ -251,6 +252,9 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
             payload = get_payload_from_form(request)
 
         validate_manifest(payload)
+
+        token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
+        authorize(public_keys, token, audience, payload)
 
         os.makedirs(stage_dir)
         logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html')))

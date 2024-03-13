@@ -7,6 +7,7 @@ import sys
 import os
 
 from controller.http import init_app, init_params
+from auth.keystore import get_entries
 
 def init_db(host, port, db, user, password, pool_size):
     return mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', 
@@ -22,6 +23,13 @@ def init_obj_store(url, access_key, secret_key):
     
 def init_virus_scanner(host, port):
     return clamd.ClamdNetworkSocket(host=host, port=port)
+
+def init_authorization(keystore, password):
+    if not keystore:
+        # authorization is not enabled
+         logging.getLogger('Authorization').warning("Authorization disabled!!!")
+         return None, None, None, None, None
+    return get_entries(keystore, password)
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -46,6 +54,13 @@ def parse_args(args):
     parser.add_argument("--scanPort", type=int, help="Document virus checker port number", default=3310)
     parser.add_argument("--scannerFilesystemMount", help="Mount point for the untrusted area in the scanner server", default='/scandir')
 
+    parser.add_argument('--authKeystore', default=None,
+                        help='A PKCS12 keystore file for storing certifcates and keys for authorizing transactions')
+    parser.add_argument('--authPassword', default=None,
+                        help='Authorization keystore password')
+    parser.add_argument('--authAudience', default='docriver',
+                        help='Target application for authorization')
+
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
     parser.add_argument('--debug', action='store_true')
 
@@ -60,8 +75,9 @@ if __name__ == '__main__':
     connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
     minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
     scanner = init_virus_scanner(args.scanHost, args.scanPort)
+    auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys = init_authorization(args.authKeystore, args.authPassword)
 
     app = init_app()
-    init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount)
+    init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
     app.run(port=args.httpPort, debug=args.debug)
 

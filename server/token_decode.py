@@ -1,7 +1,7 @@
 import argparse
 from pprint import pprint
 from auth.keystore import get_entries
-from auth.token import validate
+from auth.token import decode
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Authorize JWT token')
@@ -18,7 +18,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
-    decoded = validate(public_keys, args.token, args.audience)
+    decoded = decode(public_keys, args.token, args.audience)
 
     # Print logs
     print("Successfully authorized bearer token")

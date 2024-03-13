@@ -1,10 +1,10 @@
 import os
-import pytest
-import logging
 import base64
+import time
 from controller.http import init_app, init_params
 from main import init_db, init_obj_store, init_virus_scanner
-
+from auth.keystore import get_entries
+from auth.token import issue
 TEST_REALM = 'test123456'
 
 def raw_dir():
@@ -12,6 +12,13 @@ def raw_dir():
 
 def untrusted_dir():
     return os.getenv('DOCRIVER_UNTRUSTED_ROOT')
+
+def auth_keystore_path():
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/auth/docriver.p12'))
+
+def issuer_keystore_path(issuer):
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 
+        "server/test/resources/auth/{}.p12".format(issuer)))
 
 def delete_obj_recursively(minio, bucketname, folder):
     objs = minio.list_objects(bucketname, prefix=folder, recursive=True)
@@ -23,7 +30,7 @@ def to_base64(filename):
         inline = base64.b64encode(file.read())
     return inline.decode('utf-8')
 
-def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces):
+def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces, token):
     # saved_args = locals()
     # print("args:", saved_args)
     if inline.startswith('file:'):
@@ -50,12 +57,22 @@ def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces):
             }
         ]
     }
+    if token:
+        payload['authorization'] = token
     if replaces:
         payload['documents'][0]['replaces'] = replaces
     return payload
 
-def submit_inline_doc(client, parameters, replaces=None):
-    response = client.post('/tx', json=inline_doc_message(*parameters, replaces),
+def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, permissions=None, expires=300, delay=0):
+    token = None
+    if keystore_file:
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(keystore_file, 'docriver')
+        encoded = issue(private_key, signer_cn, 'unknown', 'docriver', expires, 'docriver', permissions)
+        token = "Bearer " + encoded[0]
+        # print(encoded)
+        if delay > 0:
+            time.sleep(delay)
+    response = client.post('/tx', json=inline_doc_message(*parameters, replaces, token),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
