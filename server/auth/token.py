@@ -6,7 +6,7 @@ from exceptions import ValidationException
 def issue(private_key, signer_cn, subject, audience, expires, resource, permissions):
     ts = datetime.datetime.utcnow()
     perms = {}
-    if isinstance(permissions, str):
+    if isinstance(permissions, list):
         for permission in permissions:
             parts = permission.split(':')
             perms[parts[0]] = parts[1]

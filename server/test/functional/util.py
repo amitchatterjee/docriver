@@ -14,7 +14,7 @@ def untrusted_dir():
     return os.getenv('DOCRIVER_UNTRUSTED_ROOT')
 
 def auth_keystore_path():
-    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/auth/docriver.p12'))
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/auth/truststore.p12'))
 
 def issuer_keystore_path(issuer):
     return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 

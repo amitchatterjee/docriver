@@ -15,8 +15,8 @@ def get_entries(keystore, password):
     public_keys = {}
     for i in range(2, len(out)):
         l = out[i]
-        for signer_cert in l:
-            signer_cn = signer_cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
-            public_keys[signer_cn] = signer_cert.public_key()
+        for cert in l:
+            cn = cert.subject.get_attributes_for_oid(NameOID.COMMON_NAME)[0].value
+            public_keys[cn] = cert.public_key()
 
     return private_key, public_key, signer_cert, signer_cn, public_keys

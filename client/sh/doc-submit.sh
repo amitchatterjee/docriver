@@ -14,8 +14,10 @@ realm=p123456
 file_volume=
 server_url=http://localhost:5000/tx
 replaces_doc_id=
+keystore_file=$HOME/.ssh/docriver/docriver.p12
+keystore_password=docriver
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:k:w:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -30,6 +32,8 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -b <FILE_VOLUME_BASE>: copy document to file volume and use path as opposed to data in the document/content section of the message. If not specified, inline data is assumed
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
     -l <REPLACES_DOC_ID> if this document is replacing another document
+    -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token
+    -w <AUTH_KEY_PASSWORD> the keystore file password
 EOF
 )
 
@@ -68,6 +72,12 @@ while getopts $OPTIONS opt; do
     l)
       replaces_doc_id="$OPTARG"
       ;;
+    k)
+      keystore_file="$OPTARG"
+      ;;
+    w)
+      keystore_password="$OPTARG"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -103,10 +113,13 @@ EOF
   fi
 fi
 
+token="Bearer $(python $DOCRIVER_GW_HOME/server/token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions realm:$realm resourceType:$resource_type resourceId: $resourceId documentCount:1)"
+
 cat << EOF > /tmp/manifest.json
 {
     "tx": "${tx_id}",
     "realm": "${realm}",
+    "authorization": "${token}",
     "documents": [
         {
             "document": "${doc_id}",
@@ -138,7 +151,7 @@ cat << EOF > /tmp/manifest.json
 }
 EOF
 
-curl -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url" | jq
+curl -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url"
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

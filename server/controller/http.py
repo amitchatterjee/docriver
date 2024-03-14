@@ -44,7 +44,7 @@ def handle_validation_error(e):
     return str(e), 400
 
 @gw.errorhandler(AuthorizationException)
-def handle_authroization_error(e):
+def handle_authorization_error(e):
     return str(e), 401
 
 @gw.errorhandler(Exception)

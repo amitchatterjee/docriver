@@ -48,6 +48,24 @@ sudo dnf install mysql
 # Create storage area
 mkdir -p ~/storage/docriver/raw/p123456/
 
+# Add keys and certificates for token verification
+rm $HOME/.ssh/docriver/*
+# Create a key pair + x509 certificate for docriver (master) key + cert.
+$DOCRIVER_GW_HOME/infrastructure/dev/sh/create_certs.sh master $HOME/.ssh/docriver
+
+# Create a key pair + x509 certificate for docriver (master) key + cert.
+$DOCRIVER_GW_HOME/infrastructure/dev/sh/create_certs.sh docriver $HOME/.ssh/docriver
+
+# Create key + x509 cert for each realm in the system
+$DOCRIVER_GW_HOME/infrastructure/dev/sh/create_certs.sh p123456 $HOME/.ssh/docriver
+$DOCRIVER_GW_HOME/infrastructure/dev/sh/create_certs.sh test123456 $HOME/.ssh/docriver
+
+# Copy all the certificates into the docrive keystore and with the docriver private key
+cat $HOME/.ssh/docriver/master.crt $HOME/.ssh/docriver/docriver.crt $HOME/.ssh/docriver/p123456.crt $HOME/.ssh/docriver/test123456.crt > $HOME/.ssh/docriver/truststore.crt
+openssl pkcs12 -export -name "docriver" -out $HOME/.ssh/docriver/truststore.p12 -inkey $HOME/.ssh/docriver/master.key -in $HOME/.ssh/docriver/truststore.crt
+
+openssl pkcs12 -info -in $HOME/.ssh/docriver/truststore.p12 -passin pass:docriver
+
 #######################################################
 # Start components
 #######################################################
@@ -57,26 +75,29 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.ym
 # Run the HTTP Endpoint
 python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
+# Run the HTTP Endpoint with Authorization
+python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
+
 #######################################################
 # Execute
 #######################################################
 # Document ingestion using the docriver CLI tool. Use -h for options
 
 # Inline document ingestion
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f ~/Downloads/wakemed-payment.pdf
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
 # Ingestion from raw file mount
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f ~/Downloads/wakemed-payment.pdf 
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
 # Multipart form file ingestion
-$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f ~/cheetah -y "Flickr images"
+$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images"
 
 # Virus scan failure
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/misc/sample/infected.txt -b $HOME/storage/docriver/raw
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
 
 # Cleanup
-mc ls --recursive docriver/docriver/p123456
-mc rm --recursive --force docriver/docriver/p123456
+# mc ls --recursive docriver/docriver/p123456
+mc rm --recursive --force docriver/docriver/p123456 docriver/docriver/test123456
 echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p${DOCRIVER_MYSQL_PASSWORD} docriver
 
 # Access the data
@@ -114,10 +135,16 @@ pip install debugpy
 }
 
 # Don't use the --cov option as this modifies the complied code and as a result, breakpoints won't hit
+
+# Run the HTTP Endpoint with remote debugging
+cd $DOCRIVER_GW_HOME/server/
+python -m debugpy --listen 0.0.0.0:5678 --wait-for-client main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+
+# Run tests with remote debugging
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest -rPX -vv 
 
 #######################################################
-# Virus Scan
+# Virus Scan - ignore. My scribbles 
 #######################################################
 # Virus scanner with clamscan - this does not require server but it is slower. Note the use of signaturedb. This is the directory where the signatures are downloaded, stored and refreshed. This is important to setup. Otherwise, there will be a long download everytime clamscan is called. This will be very slow and will also result in rate-limiting from the sites where the signatures are downloaded 
 mkdir -p $HOME/storage/clamav/signaturedb

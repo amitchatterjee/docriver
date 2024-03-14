@@ -223,7 +223,7 @@ def write_metadata(connection, bucket, payload):
             if 'references' in document:
                 create_references(cursor, document['references'], version_id)
 
-            document['dr:document'] = doc_id
+            document['dr:documentId'] = doc_id
             document['dr:documentVersionId'] = version_id
     finally:
         cursor.close()
@@ -233,6 +233,8 @@ def stage_dirname(untrusted_file_mount):
 
 def format_result(start, payload, end):
     result = format_result_base(start, payload, end)
+    if 'authorization' in result:
+        result['authorization'] = '<snipped>'
     for document in result['documents']:
         if 'content' in document and 'inline' in document['content']:
             document['content']['inline'] = '<snipped>'
