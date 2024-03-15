@@ -15,8 +15,9 @@ verbose=
 doc_type="General"
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
+prefix=
 
-OPTIONS="ht:f:x:r:i:p:u:vy:k:w:"
+OPTIONS="ht:f:x:r:i:p:u:vy:k:w:e:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -31,6 +32,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -y <TYPE>: document type. Default: $doc_type
     -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token
     -w <AUTH_KEY_PASSWORD> the keystore file password
+    -e <PREFIX> prefix to add to the document name
 EOF
 )
 
@@ -68,6 +70,9 @@ while getopts $OPTIONS opt; do
     w)
       keystore_password="$OPTARG"
       ;;
+    e)
+      prefix="$OPTARG"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -92,7 +97,7 @@ manifest=$(for file in $files; do
   file_name_no_ext=${file_name%.*}
   extension="${file_name##*.}"
   jq -n --arg fname "$file_name" '{path: $fname}' \
-    | jq -n --arg docid "${file_name_no_ext}-${ts}" --arg type "${doc_type}" --arg filename "${file_name}" \
+    | jq -n --arg docid "${prefix}${file_name_no_ext}-${ts}" --arg type "${doc_type}" --arg filename "${file_name}" \
         '{document: $docid, type: $type, content: inputs, properties: {filename: $filename}}'
 done | jq -n --arg tx "$tx_id" --arg realm "$realm" --arg token "$token" '{tx: $tx, authorization: $token, realm: $realm, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'

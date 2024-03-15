@@ -12,3 +12,5 @@ export DOCRIVER_CLAMAV_VERSION=stable_base
 export DOCRIVER_CLAMAV_PORT=3310
 
 export DOCRIVER_UNTRUSTED_ROOT=/home/amit/storage/docriver/untrusted
+
+export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/dev/sh:$DOCRIVER_GW_HOME/client/sh

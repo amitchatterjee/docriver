@@ -66,56 +66,10 @@ openssl pkcs12 -export -name "docriver" -out $HOME/.ssh/docriver/truststore.p12 
 
 openssl pkcs12 -info -in $HOME/.ssh/docriver/truststore.p12 -passin pass:docriver
 
-#######################################################
-# Start components
-#######################################################
-# Start infrastructure components needed for the document repo server
-docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
-
-# Run the HTTP Endpoint
-python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
-
-# Run the HTTP Endpoint with Authorization
-python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
-
-#######################################################
-# Execute
-#######################################################
-# Document ingestion using the docriver CLI tool. Use -h for options
-
-# Inline document ingestion
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
-
-# Ingestion from raw file mount
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
-
-# Multipart form file ingestion
-$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images"
-
-# Virus scan failure
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
-
-# Cleanup
-# mc ls --recursive docriver/docriver/p123456
-mc rm --recursive --force docriver/docriver/p123456 docriver/docriver/test123456
-echo 'DELETE FROM TX; DELETE FROM DOC;'| mysql -h 127.0.0.1 -u docriver -p${DOCRIVER_MYSQL_PASSWORD} docriver
-
-# Access the data
-mysql -h 127.0.0.1 -u docriver -p docriver
-
-#######################################################
-# Run tests
-#######################################################
-cd $DOCRIVER_GW_HOME
-# Run all tests
-python -m pytest --cov -rPX -vv
-# Run one test
-python -m pytest --cov -rPX -vv 'server/test/functional/test_rest_doc_transactions.py::test_ref_document'
-
-# Install and setup debugger
+# Install and setup for Visual Code debugging
 pip install debugpy
 
-# Add debug configuration (.vscode/launch.json)
+# Add debug configuration ($DOCRIVER_GW_HOME/.vscode/launch.json)
 {
     // Use IntelliSense to learn about possible attributes.
     // Hover to view descriptions of existing attributes.
@@ -134,11 +88,54 @@ pip install debugpy
     ]
 }
 
-# Don't use the --cov option as this modifies the complied code and as a result, breakpoints won't hit
+#######################################################
+# Start components
+#######################################################
+# Start infrastructure components needed for the document repo server
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/dev/compose/docker-compose.yml -p docriver up --detach
+
+# Run the HTTP Endpoint
+python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+
+# Run the HTTP Endpoint with Authorization
+python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the HTTP Endpoint with remote debugging
-cd $DOCRIVER_GW_HOME/server/
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+
+#######################################################
+# Execute
+#######################################################
+# Document ingestion using the docriver CLI tool. Use -h for options
+
+# Inline document ingestion
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
+
+# Ingestion from raw file mount
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
+
+# Multipart form file ingestion
+$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date --iso-8601)/"
+
+# Virus scan failure
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
+
+# Cleanup
+$DOCRIVER_GW_HOME/infrastructure/dev/sh/scrub.sh
+
+# Access the data
+mysql -h 127.0.0.1 -u docriver -p docriver
+
+#######################################################
+# Run tests
+#######################################################
+cd $DOCRIVER_GW_HOME
+# Run all tests
+python -m pytest --cov -rPX -vv
+# Run one test
+python -m pytest --cov -rPX -vv 'server/test/functional/test_rest_doc_transactions.py::test_ref_document'
+
+#### Don't use the --cov option as this modifies the complied code and as a result, breakpoints won't hit
 
 # Run tests with remote debugging
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest -rPX -vv 

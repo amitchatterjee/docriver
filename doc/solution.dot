@@ -1,0 +1,155 @@
+digraph {
+    rankdir=LR;
+
+    obj_store[label="Document Store",color=yellow,penwidth=3.0,shape=cylinder];
+    md_store[label="Document Metadata",color=yellow,penwidth=3.0, shape=cylinder];
+    events_pub_sub[label="Events Pub/Sub", shape=tab];
+
+    subgraph cluster_client_tier {
+        shape=box;
+        label="Client Tier";
+        style=rounded;
+        color=blue;
+
+        inquiry[label="Inquiry"];
+        realtime_tx_rest[label="Realtime Transaction - REST"];
+        realtime_tx_streaming[label="Realtime Transaction - HTTP Streaming"];
+        batch_tx[label="Batch Transaction"];
+        doc_access[label="Document Access Request"];
+
+        client_sftp[label="SFTP",color=turquoise,shape=folder];
+        client_obj_store[label="Object Store",color=turquoise,shape=folder];
+        client_http[label="HTTP URL",color=turquoise,shape=folder];
+    }
+
+    subgraph cluster_ingestion {
+        shape=box;
+        label="Ingestion";
+        style=rounded;
+
+        upload_share_raw[label="Shared File System",color=turquoise,shape=folder];
+        upload_sftp_raw[label="SFTP", color=turquoise,shape=folder];
+        upload_obj_store_raw[label="Object Store",color=turquoise,shape=folder];
+
+        realtime_endpoint[label="Realtime Endpoint"];
+        batch_endpoint[label="Batch Endpoint"];
+
+        authorization[label=" Authorization"];
+
+        realtime_endpoint->authorization[color=red];
+        batch_endpoint->authorization[color=blue];
+
+        splitting[label=" Splitting"];
+        authorization->splitting[color=blue];
+        integrity_check[label="Document Integrity Check",shape=component,color=green];
+
+        subgraph cluster_ingestion_document_processing {
+            shape=box;
+            label="Processing";
+            style=rounded;
+
+            staging[label="Staging"];
+            validation[label="Validation"];
+            persistence[label="Persistence"];
+
+            staging->validation[color=red];
+            staging->validation[color=blue];
+
+            validation->persistence[color=red];
+            validation->persistence[color=blue];
+        }
+
+         validation->integrity_check[dir=none];
+
+        authorization->staging[color=red];
+        splitting->staging[color=blue];
+
+        aggregation[label="Aggregation"];
+        ingestion_end[label="end", shape=circle, color=red];
+
+        persistence->ingestion_end[color=red];
+        persistence->aggregation[color=blue];
+        aggregation->ingestion_end[color=blue];
+    }
+
+
+    persistence->obj_store[dir=none];
+    persistence->md_store[dir=none];
+    ingestion_end->events_pub_sub
+
+    subgraph cluster_metadata_access {
+        shape=box;
+        label="Metadata Access";
+        style=rounded;
+
+        metadata_api[label="API"];
+    }
+
+    md_store->metadata_api[dir=none];
+
+    inquiry->metadata_api;
+    realtime_tx_rest->realtime_endpoint[color=red];
+    realtime_tx_streaming->realtime_endpoint[color=red];
+    batch_tx->batch_endpoint[color=blue];
+
+    realtime_tx_rest->upload_share_raw[color=turquoise];
+    realtime_tx_rest->upload_sftp_raw[color=turquoise];
+    realtime_tx_rest->upload_obj_store_raw[color=turquoise];
+    batch_tx->upload_share_raw[color=turquoise];
+    batch_tx->upload_sftp_raw[color=turquoise];
+    batch_tx->upload_obj_store_raw[color=turquoise];
+
+    upload_share_raw->staging[color=darkslategray4];
+    upload_sftp_raw->staging[color=darkslategray4];
+    upload_obj_store_raw->staging[color=darkslategray4];
+
+    client_sftp->staging[color=darkslategray4];
+    client_obj_store->staging[color=darkslategray4];
+    client_http->staging[color=darkslategray4];
+
+    subgraph cluster_processing {
+        shape=box;
+        label="Processing";
+        style=rounded;
+        color=blue;
+
+        scheduler[label="Schedulder"];
+        batch_data_pipeline[label="Batch Data Pipeline",shape=rarrow]
+        realtime_data_pipeline[label="Realtime Data Pipeline",shape=rarrow]
+
+        scheduler->batch_data_pipeline
+    }
+
+    events_pub_sub->realtime_data_pipeline[dir=both];
+
+    obj_store->batch_data_pipeline[dir=none];
+    md_store->batch_data_pipeline[dir=none];
+
+    obj_store->realtime_data_pipeline[dir=none];
+    md_store->realtime_data_pipeline[dir=none];
+
+    subgraph cluster_delivery {
+        shape=box;
+        label="Delivery";
+        style=rounded;
+        color=blue;
+
+        viewer[label="Document Viewer"];
+        document_transfer_http[label="HTTP Endpoint"]
+        document_transfer_sftp[label="SFTP Endoint"]
+        document_transfer_obj_store[label="Object Store Access"]        
+
+        scheduler->batch_data_pipeline
+    }
+
+    document_transfer_http->md_store[dir=none]
+    document_transfer_http->obj_store[dir=none]
+    document_transfer_sftp->md_store[dir=none]
+    document_transfer_sftp->obj_store[dir=none]
+    document_transfer_obj_store->md_store[dir=none]
+    document_transfer_obj_store->obj_store[dir=none]
+
+    document_transfer_http->doc_access[color=brown];
+    document_transfer_sftp->doc_access[color=brown];
+    document_transfer_obj_store->doc_access[color=brown];
+}
