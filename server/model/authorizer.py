@@ -7,10 +7,11 @@ def raiseif(cond, msg):
     if cond:
         raise AuthorizationException(msg)
 
-def authorize(public_keys, token, audience, payload):
+def authorize_submit(public_keys, token, audience, payload):
     auth = None 
     issuer = None
     if not public_keys:
+        payload['dr:principal'] = 'unknown'
         return auth, issuer
     try:
         raiseif (not token, "Token not specified")
@@ -38,6 +39,8 @@ def authorize(public_keys, token, audience, payload):
                 authorize_reference(auth, reference)
 
         logging.getLogger('Authorization').info("Authorized transaction: {} - realm: {} subject: {}, issuer: {}".format(payload['tx'], payload['realm'], auth['sub'], issuer))
+
+        payload['dr:principal'] = auth['sub']
         return auth, issuer
     except Exception as e:
         logging.getLogger('Authorization').warning("Authorization failure - issuer: {}, token: {}, exception: {}".format(issuer, auth, e))

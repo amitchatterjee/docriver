@@ -5,8 +5,8 @@
 
 docker network create dl
 
-# Install lynx and jq
-sudo dnf install -y lynx jq
+# Install jq
+sudo dnf install -y jq
 
 # Create python venv
 cd $HOME
@@ -115,7 +115,7 @@ $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receip
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
 # Multipart form file ingestion
-$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date --iso-8601)/"
+$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/"
 
 # Virus scan failure
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw

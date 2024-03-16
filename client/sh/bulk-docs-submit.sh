@@ -3,7 +3,7 @@
 realm=p123456
 tx_id=$(date +%s)
 input_folder=
-file_selection_regex=".+\.(zip|png|jpg|jpeg|xml|json|pdf)"
+file_selection_regex=".+\.(zip|png|jpg|jpeg|xml|json|pdf|txt|htm|html|doc|tiff|xls|xlsx|docx)"
 
 resource_type='claim'
 resource_id='123456789'
@@ -11,13 +11,12 @@ resource_description='blah blah blah'
 command=submit
 realm=p123456
 server_url=http://localhost:5000/tx
-verbose=
 doc_type="General"
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
 prefix=
 
-OPTIONS="ht:f:x:r:i:p:u:vy:k:w:e:"
+OPTIONS="ht:f:x:r:i:p:u:y:k:w:e:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -28,7 +27,6 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -i <REF_RESOURCE_ID>: reference resource id. Default: $resource_id
     -p <REF_RESOURCE_DESCRIPTION>: reference resource description. Default: $resource_description
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
-    -v: for verbose and debug output
     -y <TYPE>: document type. Default: $doc_type
     -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token
     -w <AUTH_KEY_PASSWORD> the keystore file password
@@ -58,8 +56,6 @@ while getopts $OPTIONS opt; do
       ;;
     u)
       server_url="$OPTARG"
-      ;;
-    v) verbose="-v --progress-bar"
       ;;
     y)
       doc_type="$OPTARG"
@@ -111,7 +107,15 @@ for file in $files; do
   params+=(-F "files=@${file}")
 done
 # echo "${params[@]}"
-curl $verbose -s -H "Accept: text/html" "${params[@]}" "$server_url" | lynx -dump -stdin
+
+rm -f /tmp/response.json
+http_response=$(curl -s -o /tmp/response.json -H "Accept: application/json" "${params[@]}" -w "%{response_code}" "$server_url")
+if [ $http_response != "200" ]; then
+    echo "Error: $http_response"
+    cat /tmp/response.json
+else
+    cat /tmp/response.json | jq
+fi
 echo
 
 # curl -v -F key1=value1 -F upload=@localfilename URL

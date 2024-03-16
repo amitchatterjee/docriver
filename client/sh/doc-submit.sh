@@ -151,8 +151,16 @@ cat << EOF > /tmp/manifest.json
 }
 EOF
 
-curl -s -X POST -H 'Content-Type: application/json' -H 'Accept: application/json' --data "@/tmp/manifest.json" "$server_url"
+rm -f /tmp/response.json
+http_response=$(curl -s -X POST -o /tmp/response.json -H 'Content-Type: application/json' -H "Accept: application/json" -w "%{response_code}" --data "@/tmp/manifest.json" "$server_url")
+if [ $http_response != "200" ]; then
+    echo "Error: $http_response"
+    cat /tmp/response.json
+else
+    cat /tmp/response.json | jq
+fi
 echo
+
 
 # curl -v -F key1=value1 -F upload=@localfilename URL
 # curl -H "Content-Type: multipart/mixed" -F "request={"param1": "value1"};type=application/json" -F "file1=@2.xml" -F "file2=@2.pdf"

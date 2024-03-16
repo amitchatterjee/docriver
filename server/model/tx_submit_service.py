@@ -20,7 +20,7 @@ from dao.tx import create_tx, create_tx_event
 from dao.document import create_references, create_doc, create_doc_version, create_doc_event, get_doc_by_name
 from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
-from model.authorizer import authorize
+from model.authorizer import authorize_submit
 
 def get_payload_from_form(request):
     for uploaded_file in request.files.getlist('files'):
@@ -79,7 +79,7 @@ def validate_manifest(payload):
             if re.match('^[\.]{2,}$', document['content']['path']):
                 raise ValidationException('path is not valid - contains ..')
     
-def preprocess_manifest(payload):
+def preprocess_manifest(principal, payload):
     for document in payload['documents']:
         document['dr:version'] = current_time_ms()
 
@@ -99,7 +99,7 @@ def put_object(minio, bucket, doc_key, stream, mime_type, tags, properties):
         length=-1, part_size=10*1024*1024, 
         content_type=mime_type, tags=doc_tags, metadata=properties)
     
-def stage_documents_from_manifest(stage_dir, raw_file_mount, payload):
+def stage_documents_from_manifest(principal, stage_dir, raw_file_mount, payload):
     filename_mime_dict = {}
     documents = payload['documents']
     # Assemble all the document in untrusted area for security and other validations
@@ -141,7 +141,7 @@ def find_matching_document(documents, filename):
         # else: the document refers to an existing document
     return None
 
-def stage_documents_from_form(request, stage_dir, payload):
+def stage_documents_from_form(principal, request, stage_dir, payload):
     filename_mime_dict = {}
     for uploaded_file in request.files.getlist('files'):
         if uploaded_file.filename == 'manifest.json':
@@ -160,7 +160,7 @@ def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
     return "{}/raw/{}-{}{}".format(payload['realm'], document['document'], document['dr:version'], ext)
 
-def write_to_obj_store(minio, bucket, payload):
+def write_to_obj_store(principal, minio, bucket, payload):
     documents = payload['documents']
     for document in documents: 
         if 'dr:stageFilename' in document:
@@ -172,7 +172,7 @@ def write_to_obj_store(minio, bucket, payload):
                         document['tags'] if 'tags' in document else None,
                         document['properties'] if 'properties' in document else None)
 
-def write_metadata(connection, bucket, payload):
+def write_metadata(principal, connection, bucket, payload):
     cursor = connection.cursor()
     try:
         tx_id = create_tx(payload, cursor)
@@ -256,22 +256,22 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         validate_manifest(payload)
 
         token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
-        authorize(public_keys, token, audience, payload)
+        authorize_submit(public_keys, token, audience, payload)
 
         os.makedirs(stage_dir)
-        logging.info("Received submission request: {}/{}. Content-Type: {}, Accept: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html')))
+        logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
 
-        preprocess_manifest(payload)
+        preprocess_manifest(payload['dr:principal'],payload)
 
         filename_mime_dict = None
         if rest:
-            filename_mime_dict = stage_documents_from_manifest(stage_dir, raw_fs_mount, payload)
+            filename_mime_dict = stage_documents_from_manifest(payload['dr:principal'], stage_dir, raw_fs_mount, payload)
         else:
-            filename_mime_dict = stage_documents_from_form(request, stage_dir, payload)
+            filename_mime_dict = stage_documents_from_form(payload['dr:principal'],request, stage_dir, payload)
 
-        validate_documents(scanner, scanner_fs_mount, stage_dir, filename_mime_dict)
-        write_metadata(connection, bucket, payload)
-        write_to_obj_store(minio, bucket, payload)
+        validate_documents(payload['dr:principal'], scanner, scanner_fs_mount, stage_dir, filename_mime_dict)
+        write_metadata(payload['dr:principal'], connection, bucket, payload)
+        write_to_obj_store(payload['dr:principal'], minio, bucket, payload)
 
         end = current_time_ms()
         result = format_result(start, payload, end)
