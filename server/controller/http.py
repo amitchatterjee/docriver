@@ -26,7 +26,8 @@ def process_submit_tx():
 @accept('application/json')
 def process_delete_tx():
     payload = request.json
-    result = delete_docs_tx(payload, connection_pool)
+    token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
+    result = delete_docs_tx(token, payload, connection_pool, auth_public_keys, auth_audience)
     return jsonify(result), {'Content-Type': 'application/json'}
 
 @gw.route('/favicon.ico')

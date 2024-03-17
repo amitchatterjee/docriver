@@ -1,10 +1,16 @@
+import logging
 from dao.tx import create_tx, create_tx_event
 from dao.document import get_doc_by_name, create_doc_event
 from exceptions import ValidationException
 from model.common import current_time_ms, format_result_base
+from model.authorizer import authorize_delete
 
-def delete_docs_tx(payload, connection_pool):
+def delete_docs_tx(token, payload, connection_pool, public_keys, audience):
     start = current_time_ms()
+    authorize_delete(public_keys, token, audience, payload)
+
+    logging.info("Received deletion request: {}/{}. Principal: {}".format(payload['realm'], payload['tx'], payload['dr:principal']))
+
     connection = connection_pool.get_connection()
     cursor = None
     try:

@@ -164,23 +164,33 @@ def exec_get_events(cursor, doc):
             ORDER BY e.ID
         """, {'doc': doc})
     
-def delete_docs(client, tx, docs):
-    message=delete_docs_message(tx, docs)
+def delete_docs(client, tx, docs, keystore_file=None, permissions=None, expires=300):
+    token=None
+    if keystore_file:
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(keystore_file, 'docriver')
+        encoded = issue(private_key, signer_cn, 'unknown', 'docriver', expires, 'docriver', permissions)
+        token = "Bearer " + encoded[0]
+
+    message=delete_docs_message(tx, docs, token=token)
     response = client.delete('/tx', json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
 
-def delete_docs_message(tx, docs):
-    message =  {
+def delete_docs_message(tx, docs, token=None):
+    payload =  {
         'tx': tx,
         'realm': TEST_REALM,
         'documents': [
         ]
     }
+
+    if token:
+        payload['authorization'] = token
+
     for doc in docs:
-        message['documents'].append({'document': doc}) 
-    return message
+        payload['documents'].append({'document': doc}) 
+    return payload
 
 def submit_multipart_docs(client, tx, filenames):
     files = []

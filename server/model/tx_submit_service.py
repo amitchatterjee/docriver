@@ -258,8 +258,9 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
         authorize_submit(public_keys, token, audience, payload)
 
-        os.makedirs(stage_dir)
         logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
+        
+        os.makedirs(stage_dir)
 
         preprocess_manifest(payload['dr:principal'],payload)
 

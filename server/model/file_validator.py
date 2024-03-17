@@ -19,10 +19,10 @@ def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_
                 content = stream.read(128)
                 info = fleep.get(content)
                 if not info.extension_matches(ext[1:]):
-                    logging.getLogger("Integrity").warn("Extension mismatch in file: {}. Expected: {}, found:{}, principal: {}".format(file, ext, info.extension, principal))
+                    logging.getLogger("Integrity").warning("Extension mismatch in file: {}. Expected: {}, found:{}, principal: {}".format(file, ext, info.extension, principal))
                     raise ValidationException("Extension mismatch in file: {}. Expected: {}, found:{}".format(file, ext, info.extension))
                 if not info.mime_matches(filename_mime_dict[full_path]):
-                     logging.getLogger("Integrity").warn("Magic mismatch in file: {}. Expected: {}, found:{}, principal: {}".format(file, filename_mime_dict[full_path], info.mime, principal))
+                     logging.getLogger("Integrity").warning("Magic mismatch in file: {}. Expected: {}, found:{}, principal: {}".format(file, filename_mime_dict[full_path], info.mime, principal))
                      raise ValidationException("Magic mismatch in file: {}. Expected: {}, found:{}".format(file, filename_mime_dict[full_path], info.mime))
                 # print('Type:', info.type)
                 # print('File extension:', info.extension[0])
@@ -32,7 +32,7 @@ def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_
     result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
     for kv in result.items():
         if kv[1][0] != 'OK':
-            logging.getLogger("Integrity").warn("Integrity check failed on file {}. Error: {}, principal: {}".format(kv[0], kv[1], principal))
+            logging.getLogger("Integrity").warning("Integrity check failed on file {}. Error: {}, principal: {}".format(kv[0], kv[1], principal))
             raise ValidationException("Virus check failed on file: {}. Error: {}".format(kv[0], kv[1]))
         
     # TODO this code is temporary
