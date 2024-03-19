@@ -156,6 +156,7 @@ http_response=$(curl -s -X POST -o /tmp/response.json -H 'Content-Type: applicat
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json
+    exit 1
 else
     cat /tmp/response.json | jq
 fi

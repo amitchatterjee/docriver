@@ -55,7 +55,7 @@ def cleanup(connection_pool, minio):
             connection.close()
 
 def core_client(connection_pool, minio, scanner, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience):
-    logging.getLogger().setLevel('INFO')
+    logging.basicConfig(level='INFO')
     app = init_app()
     app.config['TESTING'] = True
     init_params(connection_pool, minio, scanner, 'docriver', untrusted_dir(), raw_dir(), '/scandir', auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience)

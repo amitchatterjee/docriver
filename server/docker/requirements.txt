@@ -7,4 +7,6 @@ flask-cors
 fleep
 clamd
 pyjwt
-
+flickrapi
+pillow
+requests

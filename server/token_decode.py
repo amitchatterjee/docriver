@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import argparse
 from pprint import pprint
 from auth.keystore import get_entries

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import mysql.connector
 from minio import Minio
 import argparse
@@ -71,7 +73,7 @@ def parse_args(args):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
-    logging.getLogger().setLevel(args.log)
+    logging.basicConfig(level=args.log)
     connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
     minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
     scanner = init_virus_scanner(args.scanHost, args.scanPort)

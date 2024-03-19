@@ -113,6 +113,7 @@ http_response=$(curl -s -o /tmp/response.json -H "Accept: application/json" "${p
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json
+    exit 1
 else
     cat /tmp/response.json | jq
 fi

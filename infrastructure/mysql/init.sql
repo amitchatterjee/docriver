@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS TX_EVENT (
     FOREIGN KEY (TX_ID) REFERENCES TX(ID) ON DELETE CASCADE
 );
 
+-- Although the DOC tables are loosely coupled with TX at this time (ON DELETE SET NULL), we should not really delete TX entries without also deleting DOC entries 
 CREATE TABLE IF NOT EXISTS DOC (
     ID BIGINT UNSIGNED NOT NULL PRIMARY KEY AUTO_INCREMENT,
 
