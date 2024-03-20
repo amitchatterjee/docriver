@@ -21,7 +21,7 @@ def delete_docs_tx(token, payload, connection_pool, public_keys, audience):
         
         documents = payload['documents']
         for document in documents:
-            doc_id, version_id, doc_status = get_doc_by_name(cursor, document['document']) 
+            doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['realm'], document['document']) 
             if doc_id == None or doc_status in ['R', 'D']:
                 raise ValidationException('Document does not exist or has already been deleted/replaced')
             create_doc_event(cursor, tx_id, doc_id, None, 'DELETE', 'D')

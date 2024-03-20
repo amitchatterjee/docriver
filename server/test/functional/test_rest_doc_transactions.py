@@ -5,7 +5,7 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
-from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc, delete_docs
+from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc, delete_docs, TEST_REALM
 
 def test_health(client):
     response = client.get('/health')
@@ -59,7 +59,7 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
     try:
         cursor = connection.cursor()
         cursor.execute("""
-                SELECT t.TX, d.DOCUMENT,
+                SELECT t.TX, t.TX_TYPE, d.DOCUMENT, d.REALM,
                        v.TYPE, v.MIME_TYPE, v.LOCATION_URL, e.STATUS, e.DESCRIPTION, e.REF_DOC_ID
                 FROM TX t, DOC d, DOC_VERSION v, DOC_EVENT e
                 WHERE
@@ -72,13 +72,15 @@ def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio
         response['documents'].sort(key=lambda doc: doc['document'])
         for i, row in enumerate(cursor):
             assert row[0] == response['tx'], 'tx value mismatch'
-            assert row[1] == response['documents'][i]['document'], 'document name mismatch'
-            assert row[2] == response['documents'][i]['type'], 'document type mismatch'
-            # assert row[3] == response['documents'][i]['mimeType'], 'document mimetype mismatch'
-            assert 'I' == row[5]
-            assert 'INGESTION' == row[6]
-            assert not row[7]
-            assert_location(minio, row[4])
+            assert 'submit' == row[1]
+            assert row[2] == response['documents'][i]['document'], 'document name mismatch'
+            assert TEST_REALM == row[3]
+            assert row[4] == response['documents'][i]['type'], 'document type mismatch'
+            # assert row[5] == response['documents'][i]['mimeType'], 'document mimetype mismatch'
+            assert 'I' == row[7]
+            assert 'INGESTION' == row[8]
+            assert not row[9]
+            assert_location(minio, row[6])
         assert cursor.rowcount == len(response['documents'])
     finally:
         if cursor:

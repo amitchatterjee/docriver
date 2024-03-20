@@ -46,7 +46,7 @@ def create_doc_event(cursor, tx_id, doc_id, replaces_doc_id, event_description, 
                     (event_description, status, doc_id, replaces_doc_id, tx_id))
     return cursor.lastrowid
     
-def get_doc_by_name(cursor, name):
+def get_doc_by_name(cursor, realm, name):
     cursor.execute("""
         SELECT d.ID,
             MAX(v.ID) AS VERSION_ID,
@@ -56,9 +56,10 @@ def get_doc_by_name(cursor, name):
         WHERE
             d.ID = v.DOC_ID
             AND d.DOCUMENT = %(name)s
+            AND d.REALM = %(realm)s
         GROUP BY d.ID
         """, 
-        {"name": name})
+        {"name": name, "realm": realm})
     row = cursor.fetchone()
     if row:
         return row[0], row[1], row[3]

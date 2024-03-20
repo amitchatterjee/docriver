@@ -181,7 +181,7 @@ def write_metadata(principal, connection, bucket, payload):
         
         documents = payload['documents']
         for document in documents:
-            doc_id, version_id, doc_status = get_doc_by_name(cursor, document['document'])            
+            doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['realm'], document['document'])            
 
             if 'dr:stageFilename' in document:
                 new_version = 'replaces' in document and document['replaces'] == document['document']
@@ -192,7 +192,7 @@ def write_metadata(principal, connection, bucket, payload):
                 if 'replaces' in document:
                     replaces_doc_id = None
                     if document['replaces'] != document['document']:
-                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, document['replaces'])
+                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['realm'], document['replaces'])
                         if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
                             raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
