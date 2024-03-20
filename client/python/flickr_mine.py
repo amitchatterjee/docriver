@@ -8,6 +8,7 @@ import shutil
 import logging
 import requests
 import sys
+import json
 from PIL import Image
 from datetime import datetime
 
@@ -24,8 +25,12 @@ def parse_args():
     parser.add_argument("--size", help="Size of the photo to download. Valid options are: c/m/n/o/q/s/t. See https://librdf.org/flickcurl/api/flickcurl-searching-search-extras.html for details", default='sq')
     parser.add_argument("--filterByRatioValue", type=float, help="Filter images based on width to height ratio", default=1.33)
     parser.add_argument("--filterByRatioTolerance", type=float, help="Tolerance band for filtered images based on ratio", default=0.5)
-    parser.add_argument("--output", help="Output directory", default=os.path.join(os.getenv('HOME'), 'storage/docriver/raw'))
-    parser.add_argument("--url", help="Document gateway URL", default='http://localhost:5000')
+
+    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading")
+
+    parser.add_argument("--docriverUrl", help="Document gateway URL", default='http://localhost:5000')
+    parser.add_argument("--prefix", help="Document name prefix", default='')
+
     parser.add_argument('--keystore', default=os.path.join(os.getenv('HOME'), '.ssh/docriver.p12'),
                         help='A PKCS12 keystore file')
     parser.add_argument('--keystorePassword', default=None,
@@ -36,6 +41,7 @@ def parse_args():
                         help='Target application')
     parser.add_argument('--resource', default='document',
                         help='resource to authorize')
+    
     parser.add_argument("--log", help="log level (valid values are DEBUG, INFO, WARN, ERROR, NONE", default='INFO')
 
     parser.add_argument("--realm", help="Realm to submit document to")
@@ -51,14 +57,30 @@ def parse_args():
         raise Exception('Realm is mandatory')
     return args
 
+def pretty_print(req):
+    print('{}\n{}\n{}\n\n{}'.format(
+        '-----------START-----------',
+        req.method + ' ' + req.url,
+        '\r\n'.join('{}: {}'.format(k, v) for k, v in req.headers.items()),
+        req.body,
+    ))
+
 if __name__ == '__main__':
     args = parse_args()
     logging.basicConfig(level=args.log)
 
-    raw_folder = os.path.join(args.output, args.realm)
-    if os.path.isdir(raw_folder):
-        shutil.rmtree(raw_folder)
-    os.makedirs(raw_folder)
+    # If we are using a raw file ingestion, the location needs to be shared between the client and the server
+    tmp_folder = None
+    path_prefix=''
+    if args.rawFilesystemMount:
+        tmp_folder = os.path.join(args.rawFilesystemMount, args.realm)
+        path_prefix = '/'
+    else:
+        tmp_folder = os.path.join('/tmp/docriver', args.realm)
+        
+    if os.path.isdir(tmp_folder):
+        shutil.rmtree(tmp_folder)
+    os.makedirs(tmp_folder)
 
     flickr = flickrapi.FlickrAPI(args.api, args.secret, cache=True)    
     extras_list=['tags','geo']
@@ -76,7 +98,7 @@ if __name__ == '__main__':
     else:
         photos = flickr.walk(tag_mode='all', tags=tags, extras=extras)
 
-    cur_time = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+    cur_time = datetime.now().strftime("%Y%m%d%H%M%S")
     manifest = {
         'realm': args.realm, 
         'tx': cur_time,
@@ -84,6 +106,7 @@ if __name__ == '__main__':
     }
 
     count = 0
+    file_map = []
     for photo in photos:
         url = photo.get(size_extra)
         if logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -91,7 +114,7 @@ if __name__ == '__main__':
         if url is None:
             continue
         filename = url[url.rfind('/')+1:]        
-        full_path = os.path.join(raw_folder, filename)
+        full_path = os.path.join(tmp_folder, filename)
         urllib.request.urlretrieve(url, full_path)
         if args.filterByRatioValue:
             image = Image.open(full_path)
@@ -103,11 +126,15 @@ if __name__ == '__main__':
                 os.remove(full_path)
                 continue
         
+        if not args.rawFilesystemMount:
+            pair = ('files', open(full_path, 'rb'))
+            file_map.append(pair)
+
         doc_attribs = {
-            'document': cur_time + '/' + filename,
-            'type': 'flickr-image',
+            'document': args.prefix + ('/' if args.prefix else '') + cur_time + '/' + filename,
+            'type': 'image',
             "content": {
-                "path": "/" + filename
+                "path": path_prefix + filename
             }
         }
 
@@ -117,9 +144,31 @@ if __name__ == '__main__':
             break
 
     private_key, public_key, signer_cert, signer_cn, public_keys = keystore.get_entries(args.keystore, args.keystorePassword)
-    encoded, payload = token.issue(private_key, signer_cn, args.subject, args.audience, 5,  args.resource, {'txType': 'submit', 'documentCount': count})
+    encoded, payload = token.issue(private_key, signer_cn, args.subject, args.audience, 60,  args.resource, {'txType': 'submit', 'documentCount': count})
     manifest['authorization'] = 'Bearer ' + encoded
 
-    headers =  {"Content-Type":"application/json", "Accept": "application/json"}
-    response = requests.post(args.url + '/tx', json=manifest, headers=headers)
-    print(response)
+    response = None
+    if args.rawFilesystemMount:
+        headers =  {"Content-Type":"application/json", "Accept": "application/json"}
+        response = requests.post(args.docriverUrl + '/tx', json=manifest, headers=headers)
+    else:
+        # HTTP multipart form
+        json_object = json.dumps(manifest, indent=4)
+        with open("/tmp/manifest.json", "w") as outfile:
+            outfile.write(json_object)
+        pair = ('files', open("/tmp/manifest.json", 'r'))
+        file_map.append(pair)
+
+        headers =  {"Accept": "application/json"}
+        # req = requests.Request('POST',args.docriverUrl + '/tx',headers=headers,files=file_map)
+        # prepared = req.prepare()
+        # pretty_print(prepared)
+        # s = requests.Session()
+        # s.send(prepared)
+        response = requests.post(args.docriverUrl + '/tx', files=file_map, headers=headers)
+    if response.status_code != 200:
+        print(response.raw)
+        exit(1)
+    else:
+        print(response.text)
+

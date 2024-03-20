@@ -20,12 +20,12 @@ def create_references(cursor, references, version_id):
                         (ref_id, k, v))
     return ref_id
 
-def create_doc(cursor, document):
+def create_doc(cursor, document, realm):
     cursor.execute(("""
-                    INSERT INTO DOC (DOCUMENT) 
-                    VALUES (%s)
+                    INSERT INTO DOC (DOCUMENT, REALM) 
+                    VALUES (%s, %s)
                     """), 
-                    (document['document'], ))
+                    (document['document'], realm))
     return cursor.lastrowid
 
 def create_doc_version(bucket, cursor, tx_id, doc_id, doc_key, document):
@@ -33,7 +33,7 @@ def create_doc_version(bucket, cursor, tx_id, doc_id, doc_key, document):
                     INSERT INTO DOC_VERSION (DOC_ID, TX_ID, LOCATION_URL, TYPE, MIME_TYPE)
                     VALUES(%s, %s, %s, %s, %s)
                     """), 
-                    (doc_id, tx_id, "minio:{}:{}".format(bucket, doc_key),  
+                    (doc_id, tx_id, "s3://{}/{}".format(bucket, doc_key),  
                     document['type'], 
                     document['content']['mimeType']))
     return cursor.lastrowid

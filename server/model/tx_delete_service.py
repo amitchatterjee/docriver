@@ -15,8 +15,8 @@ def delete_docs_tx(token, payload, connection_pool, public_keys, audience):
     cursor = None
     try:
         cursor = connection.cursor()
-        tx_id = create_tx(payload, cursor)
-        payload['dr:txId'] = tx_id
+        tx_id = create_tx(payload, 'delete', cursor)
+        payload['dr:txId'] = tx_id        
         create_tx_event(cursor, tx_id)
         
         documents = payload['documents']

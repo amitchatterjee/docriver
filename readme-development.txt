@@ -94,7 +94,7 @@ pip install debugpy
 # Start infrastructure components needed for the document repo server
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose.yml -p docriver up --detach
 
-# Run the HTTP Endpoint
+# Run the HTTP Endpoint without Authorization
 python $DOCRIVER_GW_HOME/server/main.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 # Run the HTTP Endpoint with Authorization

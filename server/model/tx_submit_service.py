@@ -175,7 +175,7 @@ def write_to_obj_store(principal, minio, bucket, payload):
 def write_metadata(principal, connection, bucket, payload):
     cursor = connection.cursor()
     try:
-        tx_id = create_tx(payload, cursor)
+        tx_id = create_tx(payload, 'submit', cursor)
         payload['dr:txId'] = tx_id
         create_tx_event(cursor, tx_id)
         
@@ -198,7 +198,7 @@ def write_metadata(principal, connection, bucket, payload):
 
                 if not doc_id:
                     # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
-                    doc_id = create_doc(cursor, document)
+                    doc_id = create_doc(cursor, document, payload['realm'])
 
                 version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
 

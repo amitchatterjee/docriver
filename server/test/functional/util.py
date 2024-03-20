@@ -145,11 +145,14 @@ def submit_ref_doc(client, parameters):
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
 def assert_location(minio, location):
-    splits = location.split(':')
-    assert 3 == len(splits)
-    assert 'minio' == splits[0]
-    assert 'docriver'== splits[1]
-    iter = minio.list_objects('docriver', prefix=splits[2])
+    assert location.startswith('s3://')
+    bucket_path = location[len('s3://'):]
+    index = bucket_path.find('/')
+    assert index > 0
+    bucket = bucket_path[0:index]
+    assert 'docriver'== bucket
+    path = bucket_path[index+1:]
+    iter = minio.list_objects(bucket, prefix=path)
     count = 0
     for obj in iter:
         count = count + 1
