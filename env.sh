@@ -13,4 +13,4 @@ export DOCRIVER_CLAMAV_PORT=3310
 
 export DOCRIVER_UNTRUSTED_ROOT=$HOME/storage/docriver/untrusted
 
-export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh
+export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/src

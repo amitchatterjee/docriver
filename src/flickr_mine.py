@@ -12,8 +12,9 @@ import json
 from PIL import Image
 from datetime import datetime
 
-sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
-from auth import keystore, token
+sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'src')))
+from auth.keystore import get_entries
+from auth.token import issue
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -42,7 +43,7 @@ def parse_args():
     parser.add_argument('--resource', default='document',
                         help='resource to authorize')
     
-    parser.add_argument("--log", help="log level (valid values are DEBUG, INFO, WARN, ERROR, NONE", default='INFO')
+    parser.add_argument("--log", help="log level (valid values are DEBUG, INFO, WARN, ERROR, NONE", default='WARN')
 
     parser.add_argument("--realm", help="Realm to submit document to")
     args = parser.parse_args()
@@ -143,8 +144,8 @@ if __name__ == '__main__':
         if count >= args.max:
             break
 
-    private_key, public_key, signer_cert, signer_cn, public_keys = keystore.get_entries(args.keystore, args.keystorePassword)
-    encoded, payload = token.issue(private_key, signer_cn, args.subject, args.audience, 60,  args.resource, {'txType': 'submit', 'documentCount': count})
+    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.keystorePassword)
+    encoded, payload = issue(private_key, signer_cn, args.subject, args.audience, 60,  args.resource, {'txType': 'submit', 'documentCount': count})
     manifest['authorization'] = 'Bearer ' + encoded
 
     response = None

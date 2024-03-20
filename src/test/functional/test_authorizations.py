@@ -2,8 +2,6 @@ import pytest
 import sys
 import os
 
-sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
-
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner, auth_keystore, client_with_security
 from test.functional.util import submit_inline_doc, TEST_REALM, issuer_keystore_path, delete_docs
 

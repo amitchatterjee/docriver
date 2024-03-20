@@ -1,7 +1,7 @@
 version: '0.0.1-SNAPSHOT'
 networks:
   default:
-    name: dl
+    name: dev
     external: true
 services:
   mysql:

@@ -63,7 +63,7 @@ def parse_args(args):
     parser.add_argument('--authAudience', default='docriver',
                         help='Target application for authorization')
 
-    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
+    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
     parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args(args)

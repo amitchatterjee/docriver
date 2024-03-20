@@ -2,7 +2,7 @@ import os
 import pytest
 import logging
 from controller.http import init_app, init_params
-from main import init_db, init_obj_store, init_virus_scanner, init_authorization
+from gateway import init_db, init_obj_store, init_virus_scanner, init_authorization
 from test.functional.util import delete_obj_recursively, TEST_REALM, raw_dir, untrusted_dir, auth_keystore_path
 
 @pytest.fixture(scope="session", autouse=True)
