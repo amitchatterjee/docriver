@@ -14,7 +14,7 @@ def authorize_submit(public_keys, token, audience, payload):
         payload['dr:principal'] = 'unknown'
         return auth, issuer
     try:
-        auth, issuer = validate_token_authorize_basic(public_keys, token, audience, payload)
+        auth, issuer = validate_token_authorize_base(public_keys, token, audience, payload)
 
         raiseif('txType' not in auth['permissions'], 'txType not specified')
         raiseif(auth['permissions']['txType'] != 'submit', 'transaction type invalid')
@@ -30,7 +30,7 @@ def authorize_submit(public_keys, token, audience, payload):
             for reference in all_references:
                 authorize_reference(auth, reference)
 
-        logging.getLogger('Authorization').info("Authorized transaction: {} - realm: {} subject: {}, issuer: {}".format(payload['tx'], payload['realm'], auth['sub'], issuer))
+        logging.getLogger('Authorization').info("Authorized transaction: {} - realm: {} subject: {}, issuer: {}".format(payload['tx'], payload['dr:realm'], auth['sub'], issuer))
 
         payload['dr:principal'] = auth['sub']
         return auth, issuer
@@ -45,7 +45,7 @@ def authorize_delete(public_keys, token, audience, payload):
         payload['dr:principal'] = 'unknown'
         return auth, issuer
     try:
-        auth, issuer = validate_token_authorize_basic(public_keys, token, audience, payload)
+        auth, issuer = validate_token_authorize_base(public_keys, token, audience, payload)
         raiseif('txType' not in auth['permissions'], 'txType not specified')
         raiseif(auth['permissions']['txType'] != 'delete', 'transaction type invalid')
 
@@ -58,7 +58,7 @@ def authorize_delete(public_keys, token, audience, payload):
         logging.getLogger('Authorization').warning("Authorization failure - issuer: {}, token: {}, exception: {}".format(issuer, auth, e))
         raise AuthorizationException('Not authorized for this operation') from e
 
-def validate_token_authorize_basic(public_keys, token, audience, payload):
+def validate_token_authorize_base(public_keys, token, audience, payload):
     raiseif (not token, "Token not specified")
     splits = re.split('\s+', token)
     raiseif (len(splits) != 2, "Invalid token format")
@@ -66,7 +66,7 @@ def validate_token_authorize_basic(public_keys, token, audience, payload):
     raiseif (splits[0].upper() != 'BEARER', "Invalid token type {}".format(token))
 
     auth, issuer = decode(public_keys, splits[1], audience)
-    raiseif(issuer != payload['realm'] and issuer != 'docriver', 'Invalid issuer')
+    raiseif(issuer != payload['dr:realm'] and issuer != 'docriver', 'Invalid issuer')
     raiseif('permissions' not in auth, 'No permissions available')
     return auth,issuer
 

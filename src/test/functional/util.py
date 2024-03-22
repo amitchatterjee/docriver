@@ -44,7 +44,6 @@ def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces, token):
     # print(inline)
     payload = {
         'tx': tx,
-        'realm': TEST_REALM,
         'documents': [
             {
                 'document': doc,
@@ -72,7 +71,7 @@ def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, per
         # print(encoded)
         if delay > 0:
             time.sleep(delay)
-    response = client.post('/tx', json=inline_doc_message(*parameters, replaces, token),
+    response = client.post('/tx/' + TEST_REALM, json=inline_doc_message(*parameters, replaces, token),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
@@ -80,7 +79,6 @@ def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, per
 def path_doc_message(path, tx, doc, mime_type):
     return {
         'tx': tx,
-        'realm': TEST_REALM,
         'documents': [
             {
                 'document': doc,
@@ -94,19 +92,18 @@ def path_doc_message(path, tx, doc, mime_type):
     }
 
 def submit_path_doc(client, parameters):
-    response = client.post('/tx', json=path_doc_message(*parameters),
+    response = client.post('/tx/' + TEST_REALM, json=path_doc_message(*parameters),
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
-def path_docs_message(tx, doc_prefix, exclude = None):
+def path_docs_message(tx, doc_prefix, excludes = None):
     tx = {
         'tx': tx,
-        'realm': TEST_REALM,
         'documents': []
     }
     for i, file in enumerate(os.listdir(os.path.join(raw_dir(), TEST_REALM))):
-        if exclude and file == exclude:
+        if excludes and file in excludes:
             continue
         tx['documents'].append({
                 'document': doc_prefix + str(i),
@@ -117,19 +114,16 @@ def path_docs_message(tx, doc_prefix, exclude = None):
             })
     return tx
 
-def submit_path_docs(client, tx, doc_prefix, exclude=None):
-    message=path_docs_message(tx, doc_prefix, exclude)
-    response = client.post('/tx', json=message,
+def submit_path_docs(client, tx, doc_prefix, excludes=['manifest.json']):
+    message=path_docs_message(tx, doc_prefix, excludes)
+    response = client.post('/tx/' + TEST_REALM, json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
 
 def ref_doc_message(tx, doc):
-    # saved_args = locals()
-    # print("args:", saved_args)
     return {
         'tx': tx,
-        'realm': TEST_REALM,
         'documents': [
             {
                 'document': doc,
@@ -139,7 +133,7 @@ def ref_doc_message(tx, doc):
     }
 
 def submit_ref_doc(client, parameters):
-    response = client.post('/tx', json=ref_doc_message(*parameters),
+    response = client.post('/tx/' + TEST_REALM, json=ref_doc_message(*parameters),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
@@ -175,7 +169,7 @@ def delete_docs(client, tx, docs, keystore_file=None, permissions=None, expires=
         token = "Bearer " + encoded[0]
 
     message=delete_docs_message(tx, docs, token=token)
-    response = client.delete('/tx', json=message,
+    response = client.delete('/tx/' + TEST_REALM, json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), message
@@ -183,7 +177,6 @@ def delete_docs(client, tx, docs, keystore_file=None, permissions=None, expires=
 def delete_docs_message(tx, docs, token=None):
     payload =  {
         'tx': tx,
-        'realm': TEST_REALM,
         'documents': [
         ]
     }
@@ -199,9 +192,8 @@ def submit_multipart_docs(client, tx, filenames):
     files = []
     for filename in filenames:
         files.append((open(os.path.join(raw_dir(), TEST_REALM , filename), "rb"), filename))
-    response = client.post("/tx", data={
+    response = client.post("/tx/" + TEST_REALM, data={
         'tx': tx,
-        'realm': TEST_REALM,
         'files': files,
     }, headers={'Accept': 'application/json'})
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), response.json

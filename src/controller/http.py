@@ -12,9 +12,9 @@ from controller.html_utils import to_html
 
 gw = Blueprint('docriver-http', __name__)
 
-@gw.route('/tx', methods=['POST'])
-def process_submit_tx():
-    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, request)
+@gw.route('/tx/<realm>', methods=['POST'])
+def process_submit_tx(realm):
+    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, realm, request)
     if request.headers.get('Accept', default='text/html') == 'application/json':
         return jsonify(result), {'Content-Type': 'application/json'}
     else:
@@ -22,12 +22,12 @@ def process_submit_tx():
         # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
         return to_html(result, indent=1), 'text/html'
 
-@gw.route('/tx', methods=['DELETE'])
+@gw.route('/tx/<realm>', methods=['DELETE'])
 @accept('application/json')
-def process_delete_tx():
+def process_delete_tx(realm):
     payload = request.json
     token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
-    result = delete_docs_tx(token, payload, connection_pool, auth_public_keys, auth_audience)
+    result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
     return jsonify(result), {'Content-Type': 'application/json'}
 
 @gw.route('/favicon.ico')

@@ -101,7 +101,6 @@ if __name__ == '__main__':
 
     cur_time = datetime.now().strftime("%Y%m%d%H%M%S")
     manifest = {
-        'realm': args.realm, 
         'tx': cur_time,
         'documents': []
     }
@@ -148,10 +147,11 @@ if __name__ == '__main__':
     encoded, payload = issue(private_key, signer_cn, args.subject, args.audience, 60,  args.resource, {'txType': 'submit', 'documentCount': count})
     manifest['authorization'] = 'Bearer ' + encoded
 
+    url = args.docriverUrl + '/tx/' + args.realm
     response = None
     if args.rawFilesystemMount:
         headers =  {"Content-Type":"application/json", "Accept": "application/json"}
-        response = requests.post(args.docriverUrl + '/tx', json=manifest, headers=headers)
+        response = requests.post(url, json=manifest, headers=headers)
     else:
         # HTTP multipart form
         json_object = json.dumps(manifest, indent=4)
@@ -166,9 +166,10 @@ if __name__ == '__main__':
         # pretty_print(prepared)
         # s = requests.Session()
         # s.send(prepared)
-        response = requests.post(args.docriverUrl + '/tx', files=file_map, headers=headers)
+        response = requests.post(url, files=file_map, headers=headers)
+
     if response.status_code != 200:
-        print(response.raw)
+        print("Status: {}, message: {}".format(response.status_code, response.text))
         exit(1)
     else:
         print(response.text)

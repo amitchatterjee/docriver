@@ -51,14 +51,14 @@ mkdir -p $HOME/storage/docriver/raw/p123456/
 # Add keys and certificates for token verification
 rm $HOME/.ssh/docriver/*
 # Create a key pair + x509 certificate for docriver (master) key + cert.
-$DOCRIVER_GW_HOME/infrastructure/sh/dr_create_certs.sh master $HOME/.ssh/docriver
+$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh master $HOME/.ssh/docriver
 
 # Create a key pair + x509 certificate for docriver (master) key + cert.
-$DOCRIVER_GW_HOME/infrastructure/sh/dr_create_certs.sh docriver $HOME/.ssh/docriver
+$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh docriver $HOME/.ssh/docriver
 
 # Create key + x509 cert for each realm in the system
-$DOCRIVER_GW_HOME/infrastructure/sh/dr_create_certs.sh p123456 $HOME/.ssh/docriver
-$DOCRIVER_GW_HOME/infrastructure/sh/dr_create_certs.sh test123456 $HOME/.ssh/docriver
+$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh p123456 $HOME/.ssh/docriver
+$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh test123456 $HOME/.ssh/docriver
 
 # Copy all the certificates into the docrive keystore and with the docriver private key
 cat $HOME/.ssh/docriver/master.crt $HOME/.ssh/docriver/docriver.crt $HOME/.ssh/docriver/p123456.crt $HOME/.ssh/docriver/test123456.crt > $HOME/.ssh/docriver/truststore.crt
@@ -123,7 +123,7 @@ $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C123456
 # Cleanup
 $DOCRIVER_GW_HOME/infrastructure/sh/dr-scrub.sh
 
-# Access the data
+# Access the metadata
 mysql -h 127.0.0.1 -u docriver -p docriver
 
 #######################################################

@@ -22,16 +22,13 @@ from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_submit
 
-def get_payload_from_form(request):
+def get_payload_from_form(realm, request):
     for uploaded_file in request.files.getlist('files'):
         if uploaded_file.filename == 'manifest.json':
             manifest_file = uploaded_file.read()
             return json.loads(manifest_file)
     # if we are here, we need to manufacture a manifest provided there is a form entry for the realm
-    if 'realm' not in request.form:
-        raise ValidationException('manifest file not found and realm not specified in the form field')
     manifest = {
-        'realm': request.form['realm'],
         'tx': request.form.get('tx', default=str(uuid.uuid4())),
         'documents':[]
     }
@@ -60,7 +57,6 @@ def get_payload_from_form(request):
 
 def validate_manifest(payload):
     if not payload or not 'tx' in payload \
-        or not 'realm' in payload \
         or not 'documents' in payload \
         or len(payload['documents']) == 0:
         raise ValidationException('Basic validation error')
@@ -121,7 +117,7 @@ def stage_documents_from_manifest(principal, stage_dir, raw_file_mount, payload)
                 with open(stage_filename, mode) as stream:
                     stream.write(content)
             elif 'path' in document['content']:
-                src_filename = "{}/{}/{}".format(raw_file_mount, payload['realm'], document['content']['path'])
+                src_filename = "{}/{}/{}".format(raw_file_mount, payload['dr:realm'], document['content']['path'])
                 stage_filename = "{}/{}".format(stage_dir, os.path.split(src_filename)[1])
                 shutil.copyfile(src_filename, stage_filename)
             # else: If the inline/path attributes are not specified, then the document refers to an existing document
@@ -158,7 +154,7 @@ def stage_documents_from_form(principal, request, stage_dir, payload):
 
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
-    return "{}/raw/{}-{}{}".format(payload['realm'], document['document'], document['dr:version'], ext)
+    return "{}/raw/{}-{}{}".format(payload['dr:realm'], document['document'], document['dr:version'], ext)
 
 def write_to_obj_store(principal, minio, bucket, payload):
     documents = payload['documents']
@@ -181,7 +177,7 @@ def write_metadata(principal, connection, bucket, payload):
         
         documents = payload['documents']
         for document in documents:
-            doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['realm'], document['document'])            
+            doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['document'])            
 
             if 'dr:stageFilename' in document:
                 new_version = 'replaces' in document and document['replaces'] == document['document']
@@ -192,13 +188,13 @@ def write_metadata(principal, connection, bucket, payload):
                 if 'replaces' in document:
                     replaces_doc_id = None
                     if document['replaces'] != document['document']:
-                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['realm'], document['replaces'])
+                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['replaces'])
                         if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
                             raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
                 if not doc_id:
                     # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
-                    doc_id = create_doc(cursor, document, payload['realm'])
+                    doc_id = create_doc(cursor, document, payload['dr:realm'])
 
                 version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
 
@@ -240,26 +236,27 @@ def format_result(start, payload, end):
             document['content']['inline'] = '<snipped>'
     return result
 
-def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, public_keys, audience, request):
-    start = current_time_ms()
-    rest = request.content_type == 'application/json'
-    payload = None
-    stage_dir = stage_dirname(untrusted_fs_mount)
+def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, public_keys, audience, realm, request):
+    start = current_time_ms() 
     connection = connection_pool.get_connection()
+    stage_dir = stage_dirname(untrusted_fs_mount)
     try:
+        payload = None
+        rest = request.content_type == 'application/json'
         if rest:
             payload = request.json
         else:
             # Assume multipart/form or multipart/mixed
-            payload = get_payload_from_form(request)
+            payload = get_payload_from_form(realm, request)
 
+        payload['dr:realm'] = realm
         validate_manifest(payload)
 
         token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
         authorize_submit(public_keys, token, audience, payload)
 
-        logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
-        
+        logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['dr:realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
+
         os.makedirs(stage_dir)
 
         preprocess_manifest(payload['dr:principal'],payload)

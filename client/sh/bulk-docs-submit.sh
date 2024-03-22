@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-realm=p123456
 tx_id=$(date +%s)
 input_folder=
 file_selection_regex=".+\.(zip|png|jpg|jpeg|xml|json|pdf|txt|htm|html|doc|tiff|xls|xlsx|docx)"
@@ -95,7 +94,7 @@ manifest=$(for file in $files; do
   jq -n --arg fname "$file_name" '{path: $fname}' \
     | jq -n --arg docid "${prefix}${file_name_no_ext}-${ts}" --arg type "${doc_type}" --arg filename "${file_name}" \
         '{document: $docid, type: $type, content: inputs, properties: {filename: $filename}}'
-done | jq -n --arg tx "$tx_id" --arg realm "$realm" --arg token "$token" '{tx: $tx, authorization: $token, realm: $realm, documents: [inputs]}' \
+done | jq -n --arg tx "$tx_id" --arg token "$token" '{tx: $tx, authorization: $token, documents: [inputs]}' \
      | jq -n --arg rsrcid "$resource_id" --arg rsrctyp "$resource_type" --arg rsrcdesc "$resource_description"  'inputs + {references:[{resourceType: $rsrctyp, resourceId: $rsrcid, description: $rsrcdesc}]}'
 )
 
@@ -109,7 +108,7 @@ done
 # echo "${params[@]}"
 
 rm -f /tmp/response.json
-http_response=$(curl -s -o /tmp/response.json -H "Accept: application/json" "${params[@]}" -w "%{response_code}" "$server_url")
+http_response=$(curl -s -o /tmp/response.json -H "Accept: application/json" "${params[@]}" -w "%{response_code}" "${server_url}/${realm}")
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json

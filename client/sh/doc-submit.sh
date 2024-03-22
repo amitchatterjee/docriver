@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-realm=p123456
 mime_type="text/plain"
 tx_id=$(date +%s)
 doc_id=$(uuidgen -t)
@@ -118,7 +117,6 @@ token="Bearer $(python $DOCRIVER_GW_HOME/src/token_issue.py --keystore $keystore
 cat << EOF > /tmp/manifest.json
 {
     "tx": "${tx_id}",
-    "realm": "${realm}",
     "authorization": "${token}",
     "documents": [
         {
@@ -152,7 +150,7 @@ cat << EOF > /tmp/manifest.json
 EOF
 
 rm -f /tmp/response.json
-http_response=$(curl -s -X POST -o /tmp/response.json -H 'Content-Type: application/json' -H "Accept: application/json" -w "%{response_code}" --data "@/tmp/manifest.json" "$server_url")
+http_response=$(curl -s -X POST -o /tmp/response.json -H 'Content-Type: application/json' -H "Accept: application/json" -w "%{response_code}" --data "@/tmp/manifest.json" "${server_url}/${realm}")
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json

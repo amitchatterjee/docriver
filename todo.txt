@@ -1,0 +1,6 @@
+- DONE: Keep realm in tx path, instead of payload 
+- Add document expiry date and MYSQL partitioning
+- Add HTTP fetch
+- Add SFTP fetch
+- Add tests related to transactions
+- Do we need a service for verifying references?
