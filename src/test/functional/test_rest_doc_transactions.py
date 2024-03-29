@@ -45,10 +45,10 @@ def test_infected_multi_docs_submission(cleanup, client):
     assert result[1].startswith('Virus check failed on file')
 
 def test_multi_docs_submission(cleanup, client):
-    assert (200, 'ok') == submit_path_docs(client, '1', 'doc-', excludes=['eicar.txt'])[0:2]
+    assert (200, 'ok') == submit_path_docs(client, '1', 'doc-', excludes=['eicar.txt', 'manifest.json'])[0:2]
 
 def test_db_and_storage_after_submission_success(cleanup, connection_pool, minio, client):
-    result = submit_path_docs(client, '1', 'doc-', excludes=['eicar.txt'])
+    result = submit_path_docs(client, '1', 'doc-', excludes=['eicar.txt', 'manifest.json'])
     assert (200, 'ok') == result[0:2]
     response = result[2]
 

@@ -8,5 +8,5 @@ def test_multipart_files_submission_no_manifest(cleanup, client):
     assert (200,'ok') == result[0:2]
 
 def test_multipart_files_submission_with_manifest(cleanup, client):
-    # TODO
-    pass
+    result = submit_multipart_docs(client, '1', ['manifest.json', 'sample.jpg', 'sample.pdf'])
+    assert (200,'ok') == result[0:2]

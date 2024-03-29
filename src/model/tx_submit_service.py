@@ -25,8 +25,10 @@ from model.authorizer import authorize_submit
 def get_payload_from_form(realm, request):
     for uploaded_file in request.files.getlist('files'):
         if uploaded_file.filename == 'manifest.json':
-            manifest_file = uploaded_file.read()
-            return json.loads(manifest_file)
+            manifest = json.loads(uploaded_file.read())
+            if request.form.get('tx', default=None):
+                manifest['tx'] = request.form.get('tx')
+            return manifest
     # if we are here, we need to manufacture a manifest provided there is a form entry for the realm
     manifest = {
         'tx': request.form.get('tx', default=str(uuid.uuid4())),

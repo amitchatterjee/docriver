@@ -1,5 +1,4 @@
 {
-    "tx": "9999999",
     "documents": [
         {
             "document": "555555555",
@@ -11,7 +10,20 @@
             },
 
             "content": {
-                "path": "/sample.pdf"
+                "path": "sample.pdf"
+            }
+        },
+        {
+            "document": "555555556",
+            "type": "sample",
+
+            "tags": {},
+            "properties": {
+                "key1": "value1"
+            },
+
+            "content": {
+                "path": "sample.jpg"
             }
         }
     ],
