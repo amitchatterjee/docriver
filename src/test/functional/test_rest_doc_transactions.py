@@ -291,6 +291,57 @@ def test_document_delete_failed(cleanup, client):
     assert 400 == result[0]
     assert 'Document does not exist or has already been deleted/replaced' == result[1]
 
+def test_references(cleanup, client, connection_pool):
+    assert (200, 'ok') == submit_path_docs(client, '1', 'doc-', excludes=['eicar.txt', 'manifest.json'],
+                            tx_references=[{'resourceType':'t1-claim', 'resourceId': 't1', 'description': 't1 test description', 'properties': {'tk11': 'tv11', 'tk12': 'tv12'}},
+                            {'resourceType':'t2-claim', 'resourceId': 't2', 'description': 't2 test description', 'properties': {'tk21': 'tv21', 'tk22': 'tv22'}}],
+                            doc_references={
+                                'sample.jpg': [{'resourceType':'d1-claim', 'resourceId': 'd1', 'description': 'd1 test description', 'properties': {'dk11': 'dv11', 'dk12': 'dv12'}},
+                            {'resourceType':'d2-claim', 'resourceId': 'd2', 'description': 'd2 test description', 'properties': {'dk21': 'dv21', 'dk22': 'dv22'}}]})[0:2]
+    connection = connection_pool.get_connection()
+    cursor = None
+    try:
+        cursor = connection.cursor()
+        cursor.execute("""
+            SELECT d.DOCUMENT, r.RESOURCE_TYPE, r.RESOURCE_ID, r.DESCRIPTION, p.KEY_NAME, p.VALUE
+            FROM DOC d, DOC_VERSION v, DOC_REF r, DOC_REF_PROPERTY p
+            WHERE v.DOC_ID = d.ID
+                AND r.DOC_VERSION_ID = v.ID
+                AND p.REF_ID = r.ID
+            ORDER BY d.DOCUMENT, r.RESOURCE_TYPE, r.RESOURCE_ID, p.KEY_NAME
+        """)
+        expected = [
+            ("doc-1","d1-claim","d1","d1 test description","dk11","dv11"),
+            ("doc-1","d1-claim","d1","d1 test description","dk12","dv12"),
+            ("doc-1","d2-claim","d2","d2 test description","dk21","dv21"),
+            ("doc-1","d2-claim","d2","d2 test description","dk22","dv22"),
+            ("doc-1","t1-claim","t1","t1 test description","tk11","tv11"),
+            ("doc-1","t1-claim","t1","t1 test description","tk12","tv12"),
+            ("doc-1","t2-claim","t2","t2 test description","tk21","tv21"),
+            ("doc-1","t2-claim","t2","t2 test description","tk22","tv22"),
+            ("doc-2","t1-claim","t1","t1 test description","tk11","tv11"),
+            ("doc-2","t1-claim","t1","t1 test description","tk12","tv12"),
+            ("doc-2","t2-claim","t2","t2 test description","tk21","tv21"),
+            ("doc-2","t2-claim","t2","t2 test description","tk22","tv22"),
+            ("doc-3","t1-claim","t1","t1 test description","tk11","tv11"),
+            ("doc-3","t1-claim","t1","t1 test description","tk12","tv12"),
+            ("doc-3","t2-claim","t2","t2 test description","tk21","tv21"),
+            ("doc-3","t2-claim","t2","t2 test description","tk22","tv22"),
+            ("doc-4","t1-claim","t1","t1 test description","tk11","tv11"),
+            ("doc-4","t1-claim","t1","t1 test description","tk12","tv12"),
+            ("doc-4","t2-claim","t2","t2 test description","tk21","tv21"),
+            ("doc-4","t2-claim","t2","t2 test description","tk22","tv22")
+        ]
+        index = 0
+        for row in cursor:
+            assert expected[index] == row
+            index = index+1
+        assert len(expected) == index
+    finally:
+        if cursor:
+            cursor.close()
+        if connection.is_connected():
+            connection.close()
 
 def assert_doc_event(cursor, doc, events):
     exec_get_events(cursor, doc)

@@ -21,7 +21,7 @@ def authorize_submit(public_keys, token, audience, payload):
 
         # TODO check if we can avoid the int conversion below
         document_count =  int(auth['permissions']['documentCount']) if 'documentCount' in auth['permissions'] else 1
-        raiseif (len(payload['documents']) > document_count, "Document count exceeds allowed")
+        raiseif (document_count >= 0 and len(payload['documents']) > document_count, "Document count exceeds allowed")
 
         for document in payload['documents']:
             all_references = payload['references'] if 'references' in payload else [] \

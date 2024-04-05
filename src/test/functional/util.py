@@ -97,25 +97,32 @@ def submit_path_doc(client, parameters):
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
-def path_docs_message(tx, doc_prefix, excludes = None):
+def path_docs_message(tx, doc_prefix, excludes=None, doc_references=None, tx_references=None):
     tx = {
         'tx': tx,
         'documents': []
     }
+    if tx_references:
+        tx['references'] = tx_references
+
     for i, file in enumerate(os.listdir(os.path.join(raw_dir(), TEST_REALM))):
         if excludes and file in excludes:
             continue
-        tx['documents'].append({
+        document = {
                 'document': doc_prefix + str(i),
                 'type': 'sample',
                 'content': {
                     'path': file
                 }
-            })
+            }
+        if doc_references and file in doc_references:
+            document['references'] = doc_references[file]
+
+        tx['documents'].append(document)
     return tx
 
-def submit_path_docs(client, tx, doc_prefix, excludes=['manifest.json']):
-    message=path_docs_message(tx, doc_prefix, excludes)
+def submit_path_docs(client, tx, doc_prefix, excludes=['manifest.json'], doc_references=None, tx_references=None):
+    message=path_docs_message(tx, doc_prefix, excludes, doc_references, tx_references)
     response = client.post('/tx/' + TEST_REALM, json=message,
         headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
