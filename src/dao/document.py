@@ -64,3 +64,24 @@ def get_doc_by_name(cursor, realm, name):
     if row:
         return row[0], row[1], row[3]
     return (None, None, None)
+
+def get_doc_location(cursor, realm, name):
+    cursor.execute("""
+        SELECT d.ID,
+            (SELECT MAX(v.ID) FROM DOC_VERSION v WHERE v.DOC_ID = d.ID GROUP BY d.ID) AS VERSION_ID,
+            (SELECT v2.LOCATION_URL FROM DOC_VERSION v2 WHERE v2.ID = VERSION_ID) AS LOCATION_URL,
+            (SELECT v2.MIME_TYPE FROM DOC_VERSION v2 WHERE v2.ID = VERSION_ID) AS MIME_TYPE,
+            (SELECT MAX(e.ID) FROM DOC_EVENT e WHERE e.DOC_ID = d.ID GROUP BY e.DOC_ID) AS EVENT_ID,
+            (SELECT e2.STATUS FROM DOC_EVENT e2 WHERE e2.ID = EVENT_ID) AS STATUS
+        FROM DOC d
+        WHERE
+            d.DOCUMENT = %(name)s
+            AND d.REALM = %(realm)s
+        GROUP BY d.ID
+        HAVING STATUS NOT IN ('R','D')
+        """, 
+        {"name": name, "realm": realm})
+    row = cursor.fetchone()
+    if row:
+        return (row[2], row[3])
+    return (None, None)

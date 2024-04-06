@@ -33,7 +33,7 @@ def process_delete_tx(realm):
 
 @gw.route('/document/<realm>/<document>', methods=['GET'])
 def process_document_get(realm, document):
-    return stream_document(minio, bucket, realm, document)
+    return stream_document(connection_pool, minio, bucket, realm, document)
 
 @gw.route('/favicon.ico')
 def favicon():

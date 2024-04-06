@@ -5,6 +5,7 @@ from controller.http import init_app, init_params
 from gateway import init_db, init_obj_store, init_virus_scanner
 from auth.keystore import get_entries
 from auth.token import issue
+from model.s3_url import parse_url
 TEST_REALM = 'test123456'
 
 def raw_dir():
@@ -149,13 +150,8 @@ def submit_ref_doc(client, parameters):
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
 
 def assert_location(minio, location):
-    assert location.startswith('s3://')
-    bucket_path = location[len('s3://'):]
-    index = bucket_path.find('/')
-    assert index > 0
-    bucket = bucket_path[0:index]
+    bucket,path = parse_url(location)
     assert 'docriver'== bucket
-    path = bucket_path[index+1:]
     iter = minio.list_objects(bucket, prefix=path)
     count = 0
     for obj in iter:

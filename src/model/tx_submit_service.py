@@ -156,7 +156,7 @@ def stage_documents_from_form(principal, request, stage_dir, payload):
 
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
-    return "{}/raw/{}-{}{}".format(payload['dr:realm'], document['document'], document['dr:version'], ext)
+    return "{}/{}-{}{}".format(payload['dr:realm'], document['document'], document['dr:version'], ext)
 
 def write_to_obj_store(principal, minio, bucket, payload):
     documents = payload['documents']
