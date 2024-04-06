@@ -9,6 +9,7 @@ from model.tx_submit_service import submit_docs_tx
 from model.tx_delete_service import delete_docs_tx
 from actuator.health import get_health
 from controller.html_utils import to_html
+from model.document_service import stream_document
 
 gw = Blueprint('docriver-http', __name__)
 
@@ -20,7 +21,7 @@ def process_submit_tx(realm):
     else:
         # TODO use a jinja template
         # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
-        return to_html(result, indent=1), 'text/html'
+        return to_html(result, indent=1), 200, {'Content-Type': 'text/html'}
 
 @gw.route('/tx/<realm>', methods=['DELETE'])
 @accept('application/json')
@@ -29,6 +30,10 @@ def process_delete_tx(realm):
     token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
     result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
     return jsonify(result), {'Content-Type': 'application/json'}
+
+@gw.route('/document/<realm>/<document>', methods=['GET'])
+def process_document_get(realm, document):
+    return stream_document(minio, bucket, realm, document)
 
 @gw.route('/favicon.ico')
 def favicon():

@@ -26,7 +26,7 @@ def authorize_submit(public_keys, token, audience, payload):
         for document in payload['documents']:
             all_references = payload['references'] if 'references' in payload else [] \
                 + document['references'] if 'references' in document else []
-            raiseif(len(all_references) == 0 and 'resourceType' in auth, 'References are required')
+            raiseif(len(all_references) == 0 and 'resourceType' in auth['permissions'], 'References are required')
             for reference in all_references:
                 authorize_reference(auth, reference)
 
@@ -71,7 +71,7 @@ def validate_token_authorize_base(public_keys, token, audience, payload):
     return auth,issuer
 
 def authorize_reference(auth, reference):
-    if 'resourceType' in auth:
+    if 'resourceType' in auth['permissions']:
         # Resource type validation is needed
         raiseif(not re.match(auth['permissions']['resourceType'], reference['resourceType']), "resourceType does not match")
     if 'resourceId' in auth['permissions']:

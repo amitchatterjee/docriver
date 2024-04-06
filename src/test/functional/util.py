@@ -30,7 +30,7 @@ def to_base64(filename):
         inline = base64.b64encode(file.read())
     return inline.decode('utf-8')
 
-def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces, token):
+def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces, token, tx_references):
     # saved_args = locals()
     # print("args:", saved_args)
     if inline.startswith('file:'):
@@ -60,9 +60,11 @@ def inline_doc_message(inline, tx, doc, encoding, mime_type, replaces, token):
         payload['authorization'] = token
     if replaces:
         payload['documents'][0]['replaces'] = replaces
+    if tx_references:
+        payload['references'] = tx_references
     return payload
 
-def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, permissions=None, expires=300, delay=0):
+def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, permissions=None, expires=300, delay=0, tx_references=None):
     token = None
     if keystore_file:
         private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(keystore_file, 'docriver')
@@ -71,7 +73,8 @@ def submit_inline_doc(client, parameters, replaces=None, keystore_file=None, per
         # print(encoded)
         if delay > 0:
             time.sleep(delay)
-    response = client.post('/tx/' + TEST_REALM, json=inline_doc_message(*parameters, replaces, token),
+    response = client.post('/tx/' + TEST_REALM, 
+                           json=inline_doc_message(*parameters, replaces, token, tx_references),
                            headers={'Accept': 'application/json'})
     # print(response.status_code, response.data)
     return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8')
@@ -195,12 +198,15 @@ def delete_docs_message(tx, docs, token=None):
         payload['documents'].append({'document': doc}) 
     return payload
 
-def submit_multipart_docs(client, tx, filenames):
+def submit_multipart_docs(client, tx, filenames, accept='application/json'):
     files = []
     for filename in filenames:
         files.append((open(os.path.join(raw_dir(), TEST_REALM , filename), "rb"), filename))
     response = client.post("/tx/" + TEST_REALM, data={
         'tx': tx,
         'files': files,
-    }, headers={'Accept': 'application/json'})
-    return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), response.json
+    }, headers={'Accept': accept})
+    if accept == 'application/json':
+        return response.status_code, response.json['dr:status'] if response.status_code == 200 else response.data.decode('utf-8'), response.json
+    else:
+        return response.status_code, response.data.decode('utf-8')    
