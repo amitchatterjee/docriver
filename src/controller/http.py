@@ -31,9 +31,10 @@ def process_delete_tx(realm):
     result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
     return jsonify(result), {'Content-Type': 'application/json'}
 
-@gw.route('/document/<realm>/<document>', methods=['GET'])
+@gw.route('/document/<realm>/<path:document>', methods=['GET'])
 def process_document_get(realm, document):
-    return stream_document(connection_pool, minio, bucket, realm, document)
+    token = request.args.get('authorization') if request.args.get('authorization') else request.headers.get('Authorization')
+    return stream_document(connection_pool, minio, bucket, realm, document, auth_public_keys, auth_audience, token)
 
 @gw.route('/favicon.ico')
 def favicon():

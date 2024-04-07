@@ -97,7 +97,7 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gatewa
 # Run the gateway without Authorization
 python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
-# Run the gateway with Authorization
+# Run the gateway with Authorization turned on
 python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
