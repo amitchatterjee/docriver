@@ -120,6 +120,9 @@ $DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr imag
 # Virus scan failure
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/src/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
 
+# Download a document - change the document number and output path name
+$DOCRIVER_GW_HOME/client/sh/doc-get.sh -d 8ed01cbe-f508-11ee-b3a5-2016b95ee0b1 -o /tmp/download.pdf
+
 # Cleanup
 $DOCRIVER_GW_HOME/infrastructure/sh/dr-scrub.sh
 

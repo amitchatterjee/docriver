@@ -4,7 +4,7 @@ from flask_accept import accept
 import logging
 import os
 
-from exceptions import ValidationException, AuthorizationException
+from exceptions import ValidationException, AuthorizationException, DocumentException
 from model.tx_submit_service import submit_docs_tx
 from model.tx_delete_service import delete_docs_tx
 from actuator.health import get_health
@@ -49,6 +49,10 @@ def health_status():
 @gw.errorhandler(ValidationException)
 def handle_validation_error(e):
     return str(e), 400
+
+@gw.errorhandler(DocumentException)
+def handle_document_error(e):
+    return str(e), 404
 
 @gw.errorhandler(AuthorizationException)
 def handle_authorization_error(e):

@@ -68,6 +68,8 @@ def validate_token_authorize_base(public_keys, token, audience, realm):
     auth, issuer = decode(public_keys, splits[1], audience)
     raiseif(issuer != realm and issuer != 'docriver', 'Invalid issuer')
     raiseif('permissions' not in auth, 'No permissions available')
+
+    raiseif('realm' in auth['permissions'] and not re.match(auth['permissions']['realm'], realm), "realm does not match")
     return auth,issuer
 
 def authorize_reference(auth, reference):

@@ -16,7 +16,7 @@ replaces_doc_id=
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:k:w:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:k:w:e:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -31,8 +31,9 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -b <FILE_VOLUME_BASE>: copy document to file volume and use path as opposed to data in the document/content section of the message. If not specified, inline data is assumed
     -u <SERVER_URL>: URL of the document server REST service. Default: $server_url
     -l <REPLACES_DOC_ID> if this document is replacing another document
-    -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token
-    -w <AUTH_KEY_PASSWORD> the keystore file password
+    -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token. Default: $server_url
+    -w <AUTH_KEY_PASSWORD> the keystore file password. Default: $keystore_password
+    -e <REALM> document realm. Default: $realm
 EOF
 )
 
@@ -76,6 +77,9 @@ while getopts $OPTIONS opt; do
       ;;
     w)
       keystore_password="$OPTARG"
+      ;;
+    e)
+      realm="$OPTARG"
       ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"

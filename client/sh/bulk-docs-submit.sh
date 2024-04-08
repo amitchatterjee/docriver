@@ -15,7 +15,7 @@ keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
 prefix=
 
-OPTIONS="ht:f:x:r:i:p:u:y:k:w:e:"
+OPTIONS="ht:f:x:r:i:p:u:y:k:w:e:l:"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -30,6 +30,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token
     -w <AUTH_KEY_PASSWORD> the keystore file password
     -e <PREFIX> prefix to add to the document name
+    -l <REALM> document realm. Default: $realm
 EOF
 )
 
@@ -67,6 +68,9 @@ while getopts $OPTIONS opt; do
       ;;
     e)
       prefix="$OPTARG"
+      ;;
+    l)
+      realm="$OPTARG"
       ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"

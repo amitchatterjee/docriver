@@ -11,8 +11,13 @@ def test_notoken(cleanup, client_with_security):
 
 def test_successful_auth_using_realm_issued_token(cleanup, client_with_security):
     result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'),
-                keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'submit'})
+        keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'submit'})
     assert (200,'ok') == result[0:2]
+
+def test_submit_with_unauthorized_realm(cleanup, client_with_security):
+    result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'),
+        keystore_file=issuer_keystore_path('docriver'), permissions={'txType': 'submit', 'realm': 'p123456'})
+    assert (401,'Not authorized for this operation') == result[0:2]
 
 def test_submit_with_invalid_tx_type(cleanup, client_with_security):
     result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'),
