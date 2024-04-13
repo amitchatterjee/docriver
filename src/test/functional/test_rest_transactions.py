@@ -377,3 +377,12 @@ def test_document_get_failed_replaced(cleanup, connection_pool, client):
 
     response = client.get('/document/' + TEST_REALM + '/d001')
     assert 404 == response.status_code
+
+def test_document_get_latest_version(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.jpg', '2', 'd001', 'base64', 'image/jpeg'), replaces='d001')
+    assert (200,'ok') == result
+    response = client.get('/document/' + TEST_REALM + '/d001')
+    assert 200 == response.status_code
+    assert 'image/jpeg' == response.headers['Content-Type']
