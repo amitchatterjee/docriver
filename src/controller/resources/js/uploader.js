@@ -16,51 +16,55 @@ class Uploader extends HTMLElement {
        }
     }
 
-    handleSubmit(event) {
-        event.preventDefault();
-
-        //this.resultFrame.hidden=false;
-
-        const form = event.currentTarget;
-        form.hidden=true;
-
-        const url = new URL(form.action);
-        const formData = new FormData(form);
-        const controller = new AbortController();
-        const signal = controller.signal;
-
-        const fetchOptions = {
-            method: form.method,
-            cache: "no-cache",
-            headers: {
-                "Accept": "application/json",
-            },
-            redirect: "follow",
-            body: formData,
-            signal
-        };
-      
-        const fetchPromise = fetch(url, fetchOptions);
-        fetchPromise.then(response => {
-            if (response.status == 200) {
-                response.json().then(json=> {
-                    console.log(json)
-                });
-            } else {
-                console.log("########## " + response.body);
-            }
-        }).catch(error => {
-            // Handle any errors that occurred during the fetch
-            console.error('Fetch error:', error);
-        }).finally(()=>{
-            clearTimeout(timeoutId); // Clear the timeout
+    handleDocumentSubmission(resultFrame) {
+        this.form.addEventListener('submit', function(event) {
+            event.preventDefault();
+    
+            var form = event.currentTarget;
+            form.hidden=true;
+            resultFrame.hidden=false;
+    
+            var url = new URL(form.action);
+            var formData = new FormData(form);
+            const controller = new AbortController();
+            var signal = controller.signal;
+          
+            const fetchPromise = fetch(url, {
+                method: form.method,
+                cache: "no-cache",
+                headers: {
+                    "Accept": "application/json",
+                },
+                redirect: "follow",
+                body: formData,
+                signal
+            });
+            fetchPromise.then(response => {
+                if (response.status == 200) {
+                    response.json().then(json=> {
+                        console.log(json);
+                        resultFrame.innerHTML = `${json.documents.length} document(s) submitted. Transaction Reference: <b>${json.tx}</b>`;
+                    });
+                } else {
+                    response.text().then(error=> {
+                        resultFrame.innerHTML = `Document(s) rejected. Error: <b>${error}</b>`;
+                    });
+                }
+            }).catch(error => {
+                console.error(`Error submitting document(s): ${error}`);
+                resultFrame.innerHTML = `Error while submitting documents: <b>${error}</b>`;
+            }).finally(()=>{
+                clearTimeout(timerId);
+            });
+    
+            const timerId = setTimeout(() => {
+                controller.abort(); // Abort the fetch request
+                resultFrame.innerHTML = "Document submission timed out";
+            }, 60000);
         });
-
-        const timeoutId = setTimeout(() => {
-            controller.abort(); // Abort the fetch request
-            console.log('Document submission timed out');
-        }, 5000);
     }
+
+    // formResetCallback() {}
 
     connectedCallback() {
         console.log('Conected to docriver-uploader for realm: ' + this.getAttribute("realm"));
@@ -70,25 +74,20 @@ class Uploader extends HTMLElement {
         <input type="file" id="files" name="files" required multiple>
         <input type="submit" value="Submit">
         </form>
-        <iframe name="result">
+        <div>
+            ....
+        </div>
         `;
         this.form = this.shadowRoot.querySelector("form");
         this.form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
 
-        this.form.addEventListener('submit', this.handleSubmit);
-
-        /*
-        this.form.addEventListener("submit", (e) => {
-            this.form.hidden=true;
-            this.resultFrame.hidden=false;
-        });
-        */
+        this.resultFrame = this.shadowRoot.querySelector("div");
+        this.handleDocumentSubmission(this.resultFrame);
 
         this.createHidden('refResourceType', this.getAttribute("refResourceType"));
         this.createHidden('refResourceId', this.getAttribute("refResourceId"));
         this.createHidden('refResourceDescription', this.getAttribute("refResourceDescription"));
 
-        this.resultFrame = this.shadowRoot.querySelector("iframe");
         this.resultFrame.hidden=true;
     }
 }
