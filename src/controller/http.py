@@ -41,11 +41,17 @@ def favicon():
     # TODO - change this to a redirect URL to a server that handles static content
     return send_from_directory(os.path.join(gw.root_path, 'resources/image'),
                                'favicon.ico', mimetype='image/vnd.microsoft.icon')
-@gw.route('/js/<script>')
+@gw.route('/js/<path:script>')
 def javascript(script):
     # TODO - change this to a redirect URL to a server that handles static content
     return send_from_directory(os.path.join(gw.root_path, 'resources/js'),
                                script, mimetype='text/javascript')
+
+@gw.route('/css/<path:stylesheet>')
+def css(stylesheet):
+    # TODO - change this to a redirect URL to a server that handles static content
+    return send_from_directory(os.path.join(gw.root_path, 'resources/css'),
+                               stylesheet, mimetype='text/css')
 
 @gw.route('/health', methods=['GET'])
 def health_status():

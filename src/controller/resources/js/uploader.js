@@ -1,42 +1,40 @@
 class Uploader extends HTMLElement {
-    form = null;
-    resultFrame = null;
-
     constructor() {
         super();   
     }
 
-    createHidden(name, value) {
+    createHidden(form, name, value) {
        if (value != null) {
         var field = document.createElement("input");
         field.setAttribute('type', 'hidden');
         field.setAttribute("value", value);
         field.setAttribute("name", name);
-        this.form.appendChild(field);
+        form.appendChild(field);
        }
     }
 
-    handleDocumentSubmission(resultFrame) {
-        this.form.addEventListener('submit', function(event) {
+    handleDocumentSubmission(uploader) {
+        uploader.shadowRoot.querySelector("form").addEventListener('submit', function(event) {
             event.preventDefault();
+            console.log(uploader);
     
+            var resultFrame = uploader.shadowRoot.querySelector("div");
             var form = event.currentTarget;
+
             form.hidden=true;
             resultFrame.hidden=false;
     
-            var url = new URL(form.action);
-            var formData = new FormData(form);
-            const controller = new AbortController();
+            var controller = new AbortController();
             var signal = controller.signal;
           
-            const fetchPromise = fetch(url, {
+            const fetchPromise = fetch(new URL(form.action), {
                 method: form.method,
                 cache: "no-cache",
                 headers: {
                     "Accept": "application/json",
                 },
                 redirect: "follow",
-                body: formData,
+                body: new FormData(form),
                 signal
             });
             fetchPromise.then(response => {
@@ -44,6 +42,11 @@ class Uploader extends HTMLElement {
                     response.json().then(json=> {
                         console.log(json);
                         resultFrame.innerHTML = `${json.documents.length} document(s) submitted. Transaction Reference: <b>${json.tx}</b>`;
+                        for(let i = 0; i < json.documents.length; i++) {
+                            let newDiv = document.createElement('div');
+                            newDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;Document ${i+1}: <b>${json.documents[i].document}</b>`;
+                            resultFrame.appendChild(newDiv);
+                        }
                     });
                 } else {
                     response.text().then(error=> {
@@ -68,28 +71,41 @@ class Uploader extends HTMLElement {
 
     connectedCallback() {
         console.log('Conected to docriver-uploader for realm: ' + this.getAttribute("realm"));
+
         this.attachShadow({ mode: "open" }).innerHTML = `
-        <form method="POST" enctype="multipart/form-data">
-        <label for="files">Files</label>
-        <input type="file" id="files" name="files" required multiple>
-        <input type="submit" value="Submit">
-        </form>
-        <div>
-            ....
+        <div class="docriverSubmissionBox">
+            <form method="POST" enctype="multipart/form-data">
+            <label for="files">Select one or more files.Click the Submit button when done:</label>
+            <br/>
+            <input type="file" id="files" name="files" required multiple>
+            <input type="submit" value="Submit">
+            </form>
+            <div id="docriverSubmissionResultBox" class="docriverSubmissionResult">
+                ....
+            </div>
         </div>
         `;
-        this.form = this.shadowRoot.querySelector("form");
-        this.form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
+        var form = this.shadowRoot.querySelector("form");
+        form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
+        this.shadowRoot.querySelector("#docriverSubmissionResultBox").hidden=true;
+        this.createHidden(form, 'refResourceType', this.getAttribute("refResourceType"));
+        this.createHidden(form, 'refResourceId', this.getAttribute("refResourceId"));
+        this.createHidden(form, 'refResourceDescription', this.getAttribute("refResourceDescription"));
 
-        this.resultFrame = this.shadowRoot.querySelector("div");
-        this.handleDocumentSubmission(this.resultFrame);
+        Array.from(document.styleSheets).forEach((outerStyleSheet) => {
+            console.log(outerStyleSheet);
+            Array.from(outerStyleSheet.cssRules).forEach((cssRule) => {
+              if (cssRule.selectorText && cssRule.selectorText.startsWith('docriver-uploader-basic')) {
+                const rule = cssRule.cssText.replace('docriver-uploader-basic ', '');
+                const styleSheet = document.createElement('style');
+                this.shadowRoot.appendChild(styleSheet);
+                styleSheet.sheet.insertRule(rule);
+              }
+            });
+        });
 
-        this.createHidden('refResourceType', this.getAttribute("refResourceType"));
-        this.createHidden('refResourceId', this.getAttribute("refResourceId"));
-        this.createHidden('refResourceDescription', this.getAttribute("refResourceDescription"));
-
-        this.resultFrame.hidden=true;
+        this.handleDocumentSubmission(this);
     }
 }
 
-customElements.define('docriver-uploader', Uploader);
+customElements.define('docriver-uploader-basic', Uploader);

@@ -1,0 +1,30 @@
+
+docriver-uploader-basic input[type=submit] {
+    background-color: #04AA6D;
+    border: 2px solid #18D29A;
+    border-radius: 5px;
+    color: white;
+    padding: 5px 5px;
+    text-decoration: none;
+    margin: 4px 4px;
+    cursor: pointer;
+}
+
+docriver-uploader-basic input[type=file] {
+    background-color: #04AA6D;
+    border: 2px solid #18D29A;
+    border-radius: 5px;
+    color: white;
+    padding: 5px 5px;
+    text-decoration: none;
+    margin: 4px 4px;
+    cursor: pointer;
+}
+
+docriver-uploader-basic div {
+    background-color: #04AA6D;
+    color: white;
+    padding: 5px 5px;
+    text-decoration: none;
+    margin: 4px 4px;
+}
