@@ -18,7 +18,7 @@ class Uploader extends HTMLElement {
             event.preventDefault();
             console.log(uploader);
     
-            var resultFrame = uploader.shadowRoot.querySelector("div");
+            var resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
             var form = event.currentTarget;
 
             form.hidden=true;
@@ -80,31 +80,36 @@ class Uploader extends HTMLElement {
             <input type="file" id="files" name="files" required multiple>
             <input type="submit" value="Submit">
             </form>
-            <div id="docriverSubmissionResultBox" class="docriverSubmissionResult">
-                ....
+
+            <div class="docriverSubmissionResult">
+            ....
             </div>
         </div>
         `;
         var form = this.shadowRoot.querySelector("form");
         form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
-        this.shadowRoot.querySelector("#docriverSubmissionResultBox").hidden=true;
+        this.shadowRoot.querySelector(".docriverSubmissionResult").hidden=true;
         this.createHidden(form, 'refResourceType', this.getAttribute("refResourceType"));
         this.createHidden(form, 'refResourceId', this.getAttribute("refResourceId"));
         this.createHidden(form, 'refResourceDescription', this.getAttribute("refResourceDescription"));
 
-        Array.from(document.styleSheets).forEach((outerStyleSheet) => {
-            console.log(outerStyleSheet);
-            Array.from(outerStyleSheet.cssRules).forEach((cssRule) => {
-              if (cssRule.selectorText && cssRule.selectorText.startsWith('docriver-uploader-basic')) {
-                const rule = cssRule.cssText.replace('docriver-uploader-basic ', '');
-                const styleSheet = document.createElement('style');
-                this.shadowRoot.appendChild(styleSheet);
-                styleSheet.sheet.insertRule(rule);
-              }
-            });
-        });
+        this.addStyles();
 
         this.handleDocumentSubmission(this);
+    }
+
+    addStyles() {
+        Array.from(document.styleSheets).forEach((styleSheet) => {
+            console.log(styleSheet);
+            Array.from(styleSheet.cssRules).forEach((cssRule) => {
+                if (cssRule.selectorText && cssRule.selectorText.startsWith('docriver-uploader-basic')) {
+                    const rule = cssRule.cssText.replace('docriver-uploader-basic ', '');
+                    const styleSheet = document.createElement('style');
+                    this.shadowRoot.appendChild(styleSheet);
+                    styleSheet.sheet.insertRule(rule);
+                }
+            });
+        });
     }
 }
 

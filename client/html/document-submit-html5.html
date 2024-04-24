@@ -3,32 +3,16 @@
 <html>
     <head>
         <title>Document Submission</title>
+        
         <!--
-        <link rel="stylesheet" type="text/css" href="./docriver.css" onload="console.log('css loaded')"/>
+            The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
         -->
+        <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
+ 
     </head>
 
     <body>
         <script src="http://localhost:5000/js/uploader.js"></script>
-        <style>
-            docriver-uploader-basic .docriverSubmissionBox {
-                background-color: #04AA6D;
-                color: black;
-                padding: 15px 15px;
-                text-decoration: none;
-                margin: 10px 10px;
-            }
-
-            docriver-uploader-basic input[type=submit] {
-                background-color: #04AA6D;
-                border: 2px solid #18D29A;
-                border-radius: 5px;
-                color: white;
-                padding: 5px 5px;
-                margin: 4px 4px;
-                cursor: pointer;
-            }
-        </style>
         Submit records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
