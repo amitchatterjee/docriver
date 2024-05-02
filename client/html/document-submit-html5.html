@@ -12,12 +12,39 @@
     </head>
 
     <body>
+        <!--
+        <template id="docSubmissionTemplate">
+            <div class="docriverSubmissionBox">
+                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
+                <label for="files">Select one or more files.Click the Submit button when done:</label>
+                <br/>
+                <input type="file" id="files" name="files" required multiple>
+                <input type="submit" value="Submit">
+                </form>
+
+                <div class="docriverSubmissionResult">
+                ....
+                </div>
+            </div>
+        </template>
+        -->
+
         <script src="http://localhost:5000/js/uploader.js"></script>
         Submit records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
+            <form id="createAppealForm" method="POST">
+                <label for="realm">Realm</label>
+                <br/>
+                <input type="text" name="realm" required>
+            </form>
+            <!--
+                Add the following if you want to have tight control on the transaction (for example: to authorize the transaction)
+                tx="123456789"
+            -->
             <docriver-uploader-basic
                 docServer="http://localhost:5000"
+                documentType="medicalRecord"
                 realm="p123456",
                 refResourceType="claim", 
                 refResourceId="123456789", 

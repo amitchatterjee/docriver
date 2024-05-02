@@ -72,28 +72,39 @@ class Uploader extends HTMLElement {
     connectedCallback() {
         console.log('Conected to docriver-uploader for realm: ' + this.getAttribute("realm"));
 
-        this.attachShadow({ mode: "open" }).innerHTML = `
-        <div class="docriverSubmissionBox">
-            <form method="POST" enctype="multipart/form-data">
-            <label for="files">Select one or more files.Click the Submit button when done:</label>
-            <br/>
-            <input type="file" id="files" name="files" required multiple>
-            <input type="submit" value="Submit">
-            </form>
+        const shadowRoot = this.attachShadow({ mode: "open" });
+        const template = document.querySelector("#docSubmissionTemplate");
+        if (template != null) {
+            console.log("Since a template has been provided, going to use it");
+            const clone = template.content.cloneNode(true);
+            shadowRoot.append(clone);
+        } else {
+            console.log("Since a template has not been provided, going to use the default view")
+            shadowRoot.innerHTML = `
+            <div class="docriverSubmissionBox">
+                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
+                <label for="files">Select one or more files.Click the Submit button when done:</label>
+                <br/>
+                <input type="file" id="files" name="files" required multiple>
+                <input type="submit" value="Submit">
+                </form>
 
-            <div class="docriverSubmissionResult">
-            ....
+                <div class="docriverSubmissionResult">
+                ....
+                </div>
             </div>
-        </div>
-        `;
-        var form = this.shadowRoot.querySelector("form");
+            `;
+            this.addStyles();
+        }
+        const form = shadowRoot.querySelector("form");
         form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
-        this.shadowRoot.querySelector(".docriverSubmissionResult").hidden=true;
+        shadowRoot.querySelector(".docriverSubmissionResult").hidden=true;
+        this.createHidden(form, 'authorization', this.getAttribute("authorization"));
+        this.createHidden(form, 'tx', this.getAttribute("tx"));
+        this.createHidden(form, 'documentType', this.getAttribute("documentType"));
         this.createHidden(form, 'refResourceType', this.getAttribute("refResourceType"));
         this.createHidden(form, 'refResourceId', this.getAttribute("refResourceId"));
         this.createHidden(form, 'refResourceDescription', this.getAttribute("refResourceDescription"));
-
-        this.addStyles();
 
         this.handleDocumentSubmission(this);
     }

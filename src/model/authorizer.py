@@ -29,6 +29,7 @@ def authorize_submit(public_keys, token, audience, payload):
             raiseif(len(all_references) == 0 and 'resourceType' in auth['permissions'], 'References are required')
             for reference in all_references:
                 authorize_reference(auth, reference)
+            # TODO add authorization on "type"
 
         logging.getLogger('Authorization').info("Authorized transaction: {} - realm: {} subject: {}, issuer: {}".format(payload['tx'], payload['dr:realm'], auth['sub'], issuer))
 

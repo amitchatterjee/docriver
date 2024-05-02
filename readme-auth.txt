@@ -11,3 +11,14 @@ python $DOCRIVER_GW_HOME/src/token_decode.py --keystore $HOME/.ssh/docriver/trus
 
 # Token for get-document operation
 python $DOCRIVER_GW_HOME/src/token_issue.py --keystore $HOME/.ssh/docriver/docriver.p12  --password docriver --resource document --expires 300 --subject $USER --permissions txType:get-document document:doc-1
+
+# Run token server
+python $DOCRIVER_GW_HOME/src/reference_token_server.py --keystore $HOME/.ssh/docriver/docriver.p12  --password docriver --log INFO
+
+# Test token server
+curl -s -X POST -H 'Content-Type: application/json' -H "Accept: application/json" --data '
+    {"authorization": "123", 
+     "subject": "123", 
+     "audience": "docriver", 
+     "permissions": {"txType": "submit", "resourceType": "claims", "documentCount": 10}}' \
+http://localhost:5001/token
