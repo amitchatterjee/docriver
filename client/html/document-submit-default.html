@@ -2,7 +2,7 @@
 
 <html>
     <head>
-        <title>Document Submission</title>
+        <title>Document Submission - Default</title>
         
         <!--
             The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
@@ -12,32 +12,10 @@
     </head>
 
     <body>
-        <!--
-        <template id="docSubmissionTemplate">
-            <div class="docriverSubmissionBox">
-                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
-                <label for="files">Select one or more files.Click the Submit button when done:</label>
-                <br/>
-                <input type="file" id="files" name="files" required multiple>
-                <input type="submit" value="Submit">
-                </form>
-
-                <div class="docriverSubmissionResult">
-                ....
-                </div>
-            </div>
-        </template>
-        -->
-
         <script src="http://localhost:5000/js/uploader.js"></script>
         Submit records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
-            <form id="createAppealForm" method="POST">
-                <label for="realm">Realm</label>
-                <br/>
-                <input type="text" name="realm" required>
-            </form>
             <!--
                 Add the following if you want to have tight control on the transaction (for example: to authorize the transaction)
                 tx="123456789"
@@ -48,7 +26,8 @@
                 realm="p123456",
                 refResourceType="claim", 
                 refResourceId="123456789", 
-                refResourceDescription="Blah blah blah"/>
+                refResourceDescription="Blah blah blah"
+                label="Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done"/>
         </p>
     </body>
 </html>

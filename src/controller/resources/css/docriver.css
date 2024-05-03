@@ -7,7 +7,7 @@ docriver-uploader-basic .docriverSubmissionBox {
     margin: 10px 0px;
 }
 
-docriver-uploader-basic input[type=submit] {
+docriver-uploader-basic input[type=submit],input[type=reset] {
     background-color: #04AA6D;
     border: 2px solid #18D29A;
     border-radius: 5px;

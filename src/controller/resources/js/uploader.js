@@ -16,12 +16,12 @@ class Uploader extends HTMLElement {
     handleDocumentSubmission(uploader) {
         uploader.shadowRoot.querySelector("form").addEventListener('submit', function(event) {
             event.preventDefault();
-            console.log(uploader);
+            // console.log(uploader);
     
-            var resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
-            var form = event.currentTarget;
-
-            form.hidden=true;
+            const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
+            const form = event.currentTarget;
+            console.log(form);
+            // form.hidden=true;
             resultFrame.hidden=false;
     
             var controller = new AbortController();
@@ -47,6 +47,7 @@ class Uploader extends HTMLElement {
                             newDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;Document ${i+1}: <b>${json.documents[i].document}</b>`;
                             resultFrame.appendChild(newDiv);
                         }
+                        form.reset();
                     });
                 } else {
                     response.text().then(error=> {
@@ -82,19 +83,27 @@ class Uploader extends HTMLElement {
             console.log("Since a template has not been provided, going to use the default view")
             shadowRoot.innerHTML = `
             <div class="docriverSubmissionBox">
-                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
-                <label for="files">Select one or more files.Click the Submit button when done:</label>
-                <br/>
-                <input type="file" id="files" name="files" required multiple>
-                <input type="submit" value="Submit">
-                </form>
-
                 <div class="docriverSubmissionResult">
-                ....
+                    ....
                 </div>
+                <p></p>
+                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
+                    <label for="files">Select one or more files to submit.Click the Submit button when done:</label>
+                    <br/>
+                    <input type="file" id="files" name="files" required multiple>
+                    <input type="submit" value="Submit">
+                    &nbsp;&nbsp;<input type="reset" value="Reset">
+                </form>
             </div>
             `;
             this.addStyles();
+
+            let label = this.getAttribute("label");
+            if (label != null) {
+                const labelElement = shadowRoot.querySelector("label[for='files']");
+                label = label.replace(/{{refResourceId}}/g, this.getAttribute("refResourceId"));
+                labelElement.innerHTML = label;
+            }
         }
         const form = shadowRoot.querySelector("form");
         form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
@@ -111,7 +120,7 @@ class Uploader extends HTMLElement {
 
     addStyles() {
         Array.from(document.styleSheets).forEach((styleSheet) => {
-            console.log(styleSheet);
+            // console.log(styleSheet);
             Array.from(styleSheet.cssRules).forEach((cssRule) => {
                 if (cssRule.selectorText && cssRule.selectorText.startsWith('docriver-uploader-basic')) {
                     const rule = cssRule.cssText.replace('docriver-uploader-basic ', '');

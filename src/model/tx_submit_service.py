@@ -23,39 +23,58 @@ from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_submit
 
 def get_payload_from_form(realm, request):
-    for uploaded_file in request.files.getlist('files'):
-        if uploaded_file.filename == 'manifest.json':
-            manifest = json.loads(uploaded_file.read())
-            if request.form.get('tx', default=None):
-                manifest['tx'] = request.form.get('tx')
-            return manifest
+    for field in request.files.keys():
+        if not field.startswith('file'):
+            continue
+        for uploaded_file in request.files.getlist('files'):
+            if uploaded_file.filename == 'manifest.json':
+                manifest = json.loads(uploaded_file.read())
+                if request.form.get('tx', default=None):
+                    manifest['tx'] = request.form.get('tx')
+                return manifest
+
     # if we are here, we need to manufacture a manifest provided there is a form entry for the realm
     manifest = {
         'tx': request.form.get('tx', default=str(uuid.uuid4())),
         'documents':[]
     }
 
-    ref_dict = {
+    references = {
         'resourceType': request.form.get('refResourceType', default=''),
         'resourceId': request.form.get('refResourceId', default=''),
         'description': request.form.get('refResourceDescription', default='')
     }
-    # Remove empty fields
-    ref_dict = {k: v for k, v in ref_dict.items() if v}
-    if len(ref_dict):
-        manifest['references'] = [ref_dict]
 
-    for uploaded_file in request.files.getlist('files'):
-        doc = {
-            'type': request.form.get('documentType', default='UNSPECIFIED'),
-            'document': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
-            'content': {
-                'path': uploaded_file.filename
+    # Remove empty fields
+    remove_empty_values(manifest, references)
+
+    types = {}
+    for field, value in request.form.items():
+        if field.startswith('type'):
+            types[field[len('type'):]] = value
+
+    for field in request.files.keys():
+        if not field.startswith('file'):
+            continue
+        suffix = field[len('file'):]
+        type = types[suffix] if suffix in types else request.form.get('documentType', default='UNSPECIFIED')
+        for uploaded_file in request.files.getlist(field):
+            doc = {
+                'type': type,
+                'document': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
+                'content': {
+                    'path': uploaded_file.filename
+                }
             }
-        }
-        manifest['documents'].append(doc)
-    # print(manifest)
+            manifest['documents'].append(doc)
+
+    print(manifest)
     return manifest
+
+def remove_empty_values(manifest, references):
+    references = {k:v for k,v in references.items() if v}
+    if len(references):
+        manifest['references'] = [references]
 
 def validate_manifest(payload):
     if not payload or not 'tx' in payload \
@@ -141,17 +160,20 @@ def find_matching_document(documents, filename):
 
 def stage_documents_from_form(principal, request, stage_dir, payload):
     filename_mime_dict = {}
-    for uploaded_file in request.files.getlist('files'):
-        if uploaded_file.filename == 'manifest.json':
+    for field in request.files.keys():
+        if not field.startswith('file'):
             continue
-        staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
-        uploaded_file.save(staged_filename)
-        document = find_matching_document(payload['documents'], uploaded_file.filename)
-        if document:
-            document['dr:stageFilename'] = staged_filename
-            if 'mimeType' not in document['content']:
-                document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
-            filename_mime_dict[staged_filename] = document['content']['mimeType']
+        for uploaded_file in request.files.getlist(field):
+            if uploaded_file.filename == 'manifest.json':
+                continue
+            staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
+            uploaded_file.save(staged_filename)
+            document = find_matching_document(payload['documents'], uploaded_file.filename)
+            if document:
+                document['dr:stageFilename'] = staged_filename
+                if 'mimeType' not in document['content']:
+                    document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
+                filename_mime_dict[staged_filename] = document['content']['mimeType']
     return filename_mime_dict
 
 def format_doc_key(payload, document):
