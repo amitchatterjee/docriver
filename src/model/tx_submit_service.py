@@ -59,16 +59,17 @@ def get_payload_from_form(realm, request):
         suffix = field[len('file'):]
         type = types[suffix] if suffix in types else request.form.get('documentType', default='UNSPECIFIED')
         for uploaded_file in request.files.getlist(field):
-            doc = {
-                'type': type,
-                'document': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
-                'content': {
-                    'path': uploaded_file.filename
+            if uploaded_file.filename:
+                doc = {
+                    'type': type,
+                    'document': "{}-{}".format(pathlib.Path(uploaded_file.filename).name, current_time_ms()),
+                    'content': {
+                        'path': uploaded_file.filename
+                    }
                 }
-            }
-            manifest['documents'].append(doc)
+                manifest['documents'].append(doc)
 
-    print(manifest)
+    # print(manifest)
     return manifest
 
 def remove_empty_values(manifest, references):
@@ -164,7 +165,7 @@ def stage_documents_from_form(principal, request, stage_dir, payload):
         if not field.startswith('file'):
             continue
         for uploaded_file in request.files.getlist(field):
-            if uploaded_file.filename == 'manifest.json':
+            if not uploaded_file.filename or uploaded_file.filename == 'manifest.json':
                 continue
             staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
             uploaded_file.save(staged_filename)

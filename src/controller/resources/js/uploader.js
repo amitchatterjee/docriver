@@ -20,13 +20,33 @@ class Uploader extends HTMLElement {
     
             const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
             const form = event.currentTarget;
-            console.log(form);
-            // form.hidden=true;
+            //console.log(form);
             resultFrame.hidden=false;
     
-            var controller = new AbortController();
-            var signal = controller.signal;
-          
+            const controller = new AbortController();
+            const signal = controller.signal;
+            const fileElementsList = [];
+            let fileElements = form.querySelectorAll('input[type="file"]', 'input[name^="file"]');
+            if (fileElements.length == 0) {
+                throw new Error('No file inputs found in the form')
+            }
+            fileElements.forEach(fileElement=> {fileElementsList.push(fileElement.name);});
+
+            const formData = new FormData(form);
+
+            let filesSelected = false;
+            for (let pair of formData.entries()) {
+                if (fileElementsList.includes(pair[0]) && pair[1].name) {
+                    filesSelected = true;
+                    break;
+                }
+            }
+
+            if (!filesSelected) {
+                alert("No files selected");
+                return;
+            }
+
             const fetchPromise = fetch(new URL(form.action), {
                 method: form.method,
                 cache: "no-cache",
@@ -34,36 +54,39 @@ class Uploader extends HTMLElement {
                     "Accept": "application/json",
                 },
                 redirect: "follow",
-                body: new FormData(form),
+                body: formData,
                 signal
             });
             fetchPromise.then(response => {
                 if (response.status == 200) {
                     response.json().then(json=> {
                         console.log(json);
-                        resultFrame.innerHTML = `${json.documents.length} document(s) submitted. Transaction Reference: <b>${json.tx}</b>`;
+                        let txDiv = document.createElement('div');
+                        txDiv.innerHTML = `Transaction Reference: <b>${json.tx}</b> - ${json.documents.length} document(s) submitted:`;
+                        resultFrame.appendChild(document.createElement('p'));
+                        resultFrame.appendChild(txDiv);
                         for(let i = 0; i < json.documents.length; i++) {
-                            let newDiv = document.createElement('div');
-                            newDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;Document ${i+1}: <b>${json.documents[i].document}</b>`;
-                            resultFrame.appendChild(newDiv);
+                            let docDiv = document.createElement('div');
+                            docDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;(${i+1}) <b>${json.documents[i].document}</b>`;
+                            resultFrame.appendChild(docDiv);
                         }
                         form.reset();
                     });
                 } else {
                     response.text().then(error=> {
-                        resultFrame.innerHTML = `Document(s) rejected. Error: <b>${error}</b>`;
+                        alert(`Document(s) rejected. Error: ${error}`);
                     });
                 }
             }).catch(error => {
                 console.error(`Error submitting document(s): ${error}`);
-                resultFrame.innerHTML = `Error while submitting documents: <b>${error}</b>`;
+                alert(`Error while submitting documents: ${error}`);
             }).finally(()=>{
                 clearTimeout(timerId);
             });
     
             const timerId = setTimeout(() => {
                 controller.abort(); // Abort the fetch request
-                resultFrame.innerHTML = "Document submission timed out";
+                alert("Document submission timed out");
             }, 60000);
         });
     }
@@ -84,13 +107,12 @@ class Uploader extends HTMLElement {
             shadowRoot.innerHTML = `
             <div class="docriverSubmissionBox">
                 <div class="docriverSubmissionResult">
-                    ....
                 </div>
                 <p></p>
                 <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
                     <label for="files">Select one or more files to submit.Click the Submit button when done:</label>
                     <br/>
-                    <input type="file" id="files" name="files" required multiple>
+                    <input type="file" id="files" name="files" multiple>
                     <input type="submit" value="Submit">
                     &nbsp;&nbsp;<input type="reset" value="Reset">
                 </form>
@@ -107,7 +129,10 @@ class Uploader extends HTMLElement {
         }
         const form = shadowRoot.querySelector("form");
         form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
-        shadowRoot.querySelector(".docriverSubmissionResult").hidden=true;
+        let resultFrame = shadowRoot.querySelector(".docriverSubmissionResult")
+        resultFrame.hidden=true;
+        resultFrame.innerHTML='';
+
         this.createHidden(form, 'authorization', this.getAttribute("authorization"));
         this.createHidden(form, 'tx', this.getAttribute("tx"));
         this.createHidden(form, 'documentType', this.getAttribute("documentType"));
