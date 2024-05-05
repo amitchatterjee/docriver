@@ -8,7 +8,6 @@
             The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
         -->
         <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
- 
     </head>
 
     <body>
@@ -23,9 +22,9 @@
             <docriver-uploader-basic
                 docServer="http://localhost:5000"
                 documentType="medicalRecord"
-                realm="p123456",
-                refResourceType="claim", 
-                refResourceId="123456789", 
+                realm="p123456"
+                refResourceType="claim"
+                refResourceId="123456789"
                 refResourceDescription="Blah blah blah"
                 label="Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done"/>
         </p>

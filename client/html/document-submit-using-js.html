@@ -1,0 +1,37 @@
+<!doctype html>
+
+<html>
+    <head>
+        <title>Document Submission - Javascript</title>
+        
+        <!--
+            The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
+        -->
+        <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
+
+        <script src="http://localhost:5000/js/uploader.js"></script>
+        <script>
+           function onPageLoad() {
+            let div = document.querySelector('#docriverUploaderJs');
+            let docUploader = document.createElement('docriver-uploader-basic');
+            docUploader.setAttribute("docServer", "http://localhost:5000");
+            docUploader.setAttribute("documentType", "medicalRecord");
+            docUploader.setAttribute("realm", "p123456");
+            docUploader.setAttribute("refResourceType", "claim");
+            docUploader.setAttribute("refResourceId", "123456789");
+            docUploader.setAttribute("refResourceDescription", "Blah blah blah");
+            docUploader.setAttribute("label", "Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done");
+            div.appendChild(docUploader);
+           } 
+        </script>
+    </head>
+
+    <body onload="onPageLoad()">
+        Submit records for:<br/>
+            &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
+        <p>
+            <div id="docriverUploaderJs">
+            </div>
+        </p>
+    </body>
+</html>

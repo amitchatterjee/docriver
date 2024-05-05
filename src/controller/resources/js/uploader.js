@@ -90,9 +90,7 @@ class Uploader extends HTMLElement {
             }, 60000);
         });
     }
-
-    // formResetCallback() {}
-
+    
     connectedCallback() {
         console.log('Conected to docriver-uploader for realm: ' + this.getAttribute("realm"));
 
@@ -158,4 +156,6 @@ class Uploader extends HTMLElement {
     }
 }
 
-customElements.define('docriver-uploader-basic', Uploader);
+if(!customElements.get('docriver-uploader-basic')) {
+    customElements.define('docriver-uploader-basic', Uploader);
+}

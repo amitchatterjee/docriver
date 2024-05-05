@@ -3,16 +3,9 @@
 <html>
     <head>
         <title>Document Submission - Custom</title>
-        
-        <!--
-            The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
-        -->
-        <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
- 
     </head>
 
     <body>
-        
         <template id="docSubmissionTemplate">
             <div class="docriverSubmissionBox">
                 <div class="docriverSubmissionResult">
@@ -26,7 +19,7 @@
                     <input type="hidden" name="type-medicalRecords" value="medicalRecord">
                     
                     <p></p>
-                    <label for="file-letters">Select one or more letters:</label>
+                    <label for="file-letters">Select one or more authorization letter documents:</label>
                     <br>
                     <input type="file" id="file-letters" name="file-letters" multiple>
                     <input type="hidden" name="type-letters" value="letters">
@@ -39,7 +32,7 @@
         </template>
 
         <script src="http://localhost:5000/js/uploader.js"></script>
-        Submit records for:<br/>
+        Submit supporting records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
             <!--
@@ -49,9 +42,9 @@
             <docriver-uploader-basic
                 docServer="http://localhost:5000"
                 documentType="attachments"
-                realm="p123456",
-                refResourceType="claim", 
-                refResourceId="123456789", 
+                realm="p123456"
+                refResourceType="claim"
+                refResourceId="123456789"
                 refResourceDescription="Blah blah blah" />
         </p>
     </body>
