@@ -13,39 +13,51 @@ class Uploader extends HTMLElement {
        }
     }
 
-    handleDocumentSubmission(uploader) {
-        uploader.shadowRoot.querySelector("form").addEventListener('submit', function(event) {
-            event.preventDefault();
-            // console.log(uploader);
-    
-            const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
-            const form = event.currentTarget;
-            //console.log(form);
-            resultFrame.hidden=false;
-    
-            const controller = new AbortController();
-            const signal = controller.signal;
-            const fileElementsList = [];
+    valid(form, formData) {
+        const fileElementsList = [];
             let fileElements = form.querySelectorAll('input[type="file"]', 'input[name^="file"]');
             if (fileElements.length == 0) {
                 throw new Error('No file inputs found in the form')
             }
             fileElements.forEach(fileElement=> {fileElementsList.push(fileElement.name);});
 
-            const formData = new FormData(form);
-
-            let filesSelected = false;
             for (let pair of formData.entries()) {
                 if (fileElementsList.includes(pair[0]) && pair[1].name) {
-                    filesSelected = true;
-                    break;
+                    return true;
                 }
             }
+            
+            alert("No files selected");
+            return false;
+    }
 
-            if (!filesSelected) {
-                alert("No files selected");
+    event(uploader, type, obj) {
+        let event = new CustomEvent(type, {
+            bubbles: true,
+            cancelable: true,
+            detail: obj
+        });
+        return uploader.dispatchEvent(event);
+    }
+
+    handleDocumentSubmission(uploader) {
+        uploader.shadowRoot.querySelector("form").addEventListener('submit', function(event) {
+            event.preventDefault();
+            // console.log(uploader);
+
+            const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
+            const form = event.currentTarget;
+            const formData = new FormData(form);
+
+            //console.log(form);
+            resultFrame.hidden=false;
+
+            if (!uploader.valid(form, formData)) {
                 return;
             }
+
+            const controller = new AbortController();
+            const signal = controller.signal;
 
             const fetchPromise = fetch(new URL(form.action), {
                 method: form.method,
@@ -61,6 +73,10 @@ class Uploader extends HTMLElement {
                 if (response.status == 200) {
                     response.json().then(json=> {
                         console.log(json);
+                        if (!uploader.event(uploader, "result", json)) {
+                            return;
+                        }
+
                         let txDiv = document.createElement('div');
                         txDiv.innerHTML = `Transaction Reference: <b>${json.tx}</b> - ${json.documents.length} document(s) submitted:`;
                         resultFrame.appendChild(document.createElement('p'));
@@ -74,11 +90,23 @@ class Uploader extends HTMLElement {
                     });
                 } else {
                     response.text().then(error=> {
+                        if (!uploader.event(uploader, "error", 
+                            {
+                                error: `${error}`
+                            })) {
+                            return;
+                        }
                         alert(`Document(s) rejected. Error: ${error}`);
                     });
                 }
             }).catch(error => {
                 console.error(`Error submitting document(s): ${error}`);
+                if (!uploader.event(uploader, "error", 
+                    {
+                        error: `${error}`
+                    })) {
+                    return;
+                }
                 alert(`Error while submitting documents: ${error}`);
             }).finally(()=>{
                 clearTimeout(timerId);
@@ -86,6 +114,13 @@ class Uploader extends HTMLElement {
     
             const timerId = setTimeout(() => {
                 controller.abort(); // Abort the fetch request
+                console.error('Document submission timed out');
+                if (!uploader.event(uploader, "error", 
+                    {
+                        error: "Document submission timed out"
+                    })) {
+                    return;
+                }
                 alert("Document submission timed out");
             }, 60000);
         });

@@ -11,18 +11,30 @@
 
         <script src="http://localhost:5000/js/uploader.js"></script>
         <script>
-           function onPageLoad() {
-            let div = document.querySelector('#docriverUploaderJs');
-            let docUploader = document.createElement('docriver-uploader-basic');
-            docUploader.setAttribute("docServer", "http://localhost:5000");
-            docUploader.setAttribute("documentType", "medicalRecord");
-            docUploader.setAttribute("realm", "p123456");
-            docUploader.setAttribute("refResourceType", "claim");
-            docUploader.setAttribute("refResourceId", "123456789");
-            docUploader.setAttribute("refResourceDescription", "Blah blah blah");
-            docUploader.setAttribute("label", "Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done");
-            div.appendChild(docUploader);
-           } 
+            function onResult(e) {
+                alert(JSON.stringify(e.detail, null, 2));
+                // e.preventDefault()
+            }
+
+            function onError(e) {
+                alert(JSON.stringify(e.detail, null, 2));
+                // e.preventDefault()
+            }
+
+            function onPageLoad() {
+                let div = document.querySelector('#docriverUploaderJs');
+                let docUploader = document.createElement('docriver-uploader-basic');
+                docUploader.setAttribute("docServer", "http://localhost:5000");
+                docUploader.setAttribute("documentType", "medicalRecord");
+                docUploader.setAttribute("realm", "p123456");
+                docUploader.setAttribute("refResourceType", "claim");
+                docUploader.setAttribute("refResourceId", "123456789");
+                docUploader.setAttribute("refResourceDescription", "Blah blah blah");
+                docUploader.setAttribute("label", "Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done");
+                docUploader.addEventListener("result", onResult);
+                docUploader.addEventListener("error", onError);
+                div.appendChild(docUploader);
+            } 
         </script>
     </head>
 
