@@ -146,8 +146,8 @@ class Uploader extends HTMLElement {
                     <label for="files">Select one or more files to submit.Click the Submit button when done:</label>
                     <br/>
                     <input type="file" id="files" name="files" multiple>
-                    <input type="submit" value="Submit">
-                    &nbsp;&nbsp;<input type="reset" value="Reset">
+                    <input type="submit" value="Upload Document">
+                    &nbsp;&nbsp;<input type="reset" value="Reset Selection">
                 </form>
             </div>
             `;

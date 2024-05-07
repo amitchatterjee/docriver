@@ -3,23 +3,26 @@
 <html>
     <head>
         <title>Document Submission - Javascript</title>
-        
-        <!--
-            The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
-        -->
-        <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
 
         <script src="http://localhost:5000/js/uploader.js"></script>
         <script>
             function onResult(e) {
-                alert(JSON.stringify(e.detail, null, 2));
-                // e.preventDefault()
+                let submittedDocumentsElement = document.querySelector('#submittedDocuments');
+                let submittedDocuments = JSON.parse(submittedDocumentsElement.value);
+                let urls = [];
+                for (doc of e.detail.documents) {
+                    urls.push(doc.document);
+                }
+                
+                submittedDocuments.push({[e.detail.tx]: urls});
+                submittedDocumentsElement.value=JSON.stringify(submittedDocuments);
+                submittedDocumentsElement.dispatchEvent(new Event('input', { 'bubbles': true }));
             }
 
-            function onError(e) {
-                alert(JSON.stringify(e.detail, null, 2));
-                // e.preventDefault()
-            }
+            // function onError(e) {
+            //    alert(JSON.stringify(e.detail, null, 2));
+            //    e.preventDefault()
+            //}
 
             function onPageLoad() {
                 let div = document.querySelector('#docriverUploaderJs');
@@ -29,21 +32,75 @@
                 docUploader.setAttribute("realm", "p123456");
                 docUploader.setAttribute("refResourceType", "claim");
                 docUploader.setAttribute("refResourceId", "123456789");
-                docUploader.setAttribute("refResourceDescription", "Blah blah blah");
-                docUploader.setAttribute("label", "Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done");
+                docUploader.setAttribute("refResourceDescription", "Supporting documents for appeals");
                 docUploader.addEventListener("result", onResult);
-                docUploader.addEventListener("error", onError);
+                // docUploader.addEventListener("error", onError);
                 div.appendChild(docUploader);
-            } 
+            }
+
+            function onAppealsSubmit(e) {
+                let form = e.currentTarget;
+                let formData = new FormData(form);
+                for (var pair of formData.entries()) {
+                    console.log(pair[0] + ': ' + pair[1]); 
+                }       
+                alert(`Appeals submitted.  Appeals Id: 123456`);
+                e.preventDefault();
+            }
         </script>
     </head>
 
     <body onload="onPageLoad()">
-        Submit records for:<br/>
-            &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
+        <template id="docSubmissionTemplate">
+            <style>
+                .docriverSubmissionBox {
+                  background: #1E88E5;
+                  color: white;
+                  padding: 1rem 1rem;
+                  border: 0;
+                  font-size: 1rem;
+                }
+            </style>
+
+            <div class="docriverSubmissionBox">
+                <div class="docriverSubmissionResult"></div>
+                Please upload the supporting documents:
+                <p></p>
+                <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
+                    <label for="file-medicalRecords">Medical records:</label>
+                    <br>
+                    <input type="file" id="file-medicalRecords" name="file-medicalRecords" multiple>
+                    <input type="hidden" name="type-medicalRecords" value="medicalRecord">
+                    
+                    <p></p>
+                    <label for="file-letters">Xray, CT Scan and other images:</label>
+                    <br>
+                    <input type="file" id="file-letters" name="file-letters" multiple>
+                    <input type="hidden" name="type-letters" value="letters">
+                    
+                    <p></p>
+                    <input type="submit" value="Submit Documents">
+                    &nbsp;&nbsp;<input type="reset" value="Reset Documents">
+                </form>
+            </div>
+        </template>
+        <h2>
+            Appeal the decision for claim: <b>123456789</b>
+        </h2>
         <p>
             <div id="docriverUploaderJs">
             </div>
+        </p>
+        <p>
+            <form id="appealsForm" action="/something" onsubmit="return onAppealsSubmit(event)">
+                <input type="hidden" id="submittedDocuments" name="documents" value="[]">
+                <input type="hidden" name="claim" value="123456789">
+                <label for="additionalInformation">Additional Information:</label>
+                <br>
+                <textarea id="additionalInformation" name="additionalInformation" rows="4" cols="50"></textarea>
+                <br>
+                <input type="submit" value="Submit">
+            </form>
         </p>
     </body>
 </html>
