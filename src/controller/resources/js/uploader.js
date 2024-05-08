@@ -194,3 +194,17 @@ class Uploader extends HTMLElement {
 if(!customElements.get('docriver-uploader-basic')) {
     customElements.define('docriver-uploader-basic', Uploader);
 }
+
+function resetUpload() {
+    let shadowRoot = document.querySelector('docriver-uploader-basic').shadowRoot;
+    let form = shadowRoot.querySelector("#docriverSubmissionForm");
+    form.reset();
+    let result = shadowRoot.querySelector(".docriverSubmissionResult");
+    result.innerHTML = '';
+}
+
+function submitDocuments() {
+    let shadowRoot = document.querySelector('docriver-uploader-basic').shadowRoot;
+    let form = shadowRoot.querySelector("#docriverSubmissionForm");
+    form.submit();
+}

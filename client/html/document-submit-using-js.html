@@ -6,6 +6,11 @@
 
         <script src="http://localhost:5000/js/uploader.js"></script>
         <script>
+            function uuidv4() {
+                return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
+                    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16));
+            }
+
             function onResult(e) {
                 let submittedDocumentsElement = document.querySelector('#submittedDocuments');
                 let submittedDocuments = JSON.parse(submittedDocumentsElement.value);
@@ -27,6 +32,7 @@
             function onPageLoad() {
                 let div = document.querySelector('#docriverUploaderJs');
                 let docUploader = document.createElement('docriver-uploader-basic');
+                // docUploader.setAttribute("tx", uuidv4());
                 docUploader.setAttribute("docServer", "http://localhost:5000");
                 docUploader.setAttribute("documentType", "medicalRecord");
                 docUploader.setAttribute("realm", "p123456");
@@ -39,13 +45,22 @@
             }
 
             function onAppealsSubmit(e) {
+                e.preventDefault();
                 let form = e.currentTarget;
                 let formData = new FormData(form);
                 for (var pair of formData.entries()) {
-                    console.log(pair[0] + ': ' + pair[1]); 
+                    console.log(`${pair[0]}: ${pair[1]}`); 
                 }       
+                resetUpload();
+                form.reset();
                 alert(`Appeals submitted.  Appeals Id: 123456`);
+            }
+
+            function onAppealsReset(e) {
                 e.preventDefault();
+                let form = e.currentTarget;       
+                resetUpload();
+                form.reset();
             }
         </script>
     </head>
@@ -64,7 +79,7 @@
 
             <div class="docriverSubmissionBox">
                 <div class="docriverSubmissionResult"></div>
-                Please upload the supporting documents:
+                Submit supporting documents - select one or more files using the file selectors. Click on the "Submit Documents" button to submit:
                 <p></p>
                 <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">
                     <label for="file-medicalRecords">Medical records:</label>
@@ -85,21 +100,22 @@
             </div>
         </template>
         <h2>
-            Appeal the decision for claim: <b>123456789</b>
+            Appeal payment decision for claim: <b>123456789</b>
         </h2>
         <p>
             <div id="docriverUploaderJs">
             </div>
         </p>
         <p>
-            <form id="appealsForm" action="/something" onsubmit="return onAppealsSubmit(event)">
+            <form id="appealsForm" onsubmit="return onAppealsSubmit(event)" onreset="return onAppealsReset(event)">
                 <input type="hidden" id="submittedDocuments" name="documents" value="[]">
                 <input type="hidden" name="claim" value="123456789">
                 <label for="additionalInformation">Additional Information:</label>
                 <br>
-                <textarea id="additionalInformation" name="additionalInformation" rows="4" cols="50"></textarea>
+                <textarea id="additionalInformation" name="additionalInformation" rows="4" cols="50" required></textarea>
                 <br>
                 <input type="submit" value="Submit">
+                &nbsp;&nbsp;&nbsp;&nbsp;<input type="reset" value="Reset">
             </form>
         </p>
     </body>
