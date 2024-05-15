@@ -45,6 +45,10 @@ class Uploader extends HTMLElement {
             event.preventDefault();
             // console.log(uploader);
 
+            // let fn = window[uploader.getAttribute('onToken')];
+            // let x = fn();
+            // console.log("Received token: " + x); 
+
             const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
             const form = event.currentTarget;
             const formData = new FormData(form);
@@ -164,7 +168,7 @@ class Uploader extends HTMLElement {
         form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
         let resultFrame = shadowRoot.querySelector(".docriverSubmissionResult")
         resultFrame.hidden=true;
-        resultFrame.innerHTML='';
+        resultFrame.innerHTML='';     
 
         this.createHidden(form, 'authorization', this.getAttribute("authorization"));
         this.createHidden(form, 'tx', this.getAttribute("tx"));
@@ -206,5 +210,10 @@ function resetUpload() {
 function submitDocuments() {
     let shadowRoot = document.querySelector('docriver-uploader-basic').shadowRoot;
     let form = shadowRoot.querySelector("#docriverSubmissionForm");
-    form.submit();
+    let submitEvent = new SubmitEvent("submit", { submitter: form });
+    form.dispatchEvent(submitEvent);
+}
+
+function getSubmittedDocuments() {
+
 }

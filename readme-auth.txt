@@ -16,9 +16,8 @@ python $DOCRIVER_GW_HOME/src/token_issue.py --keystore $HOME/.ssh/docriver/docri
 python $DOCRIVER_GW_HOME/src/reference_token_server.py --keystore $HOME/.ssh/docriver/docriver.p12  --password docriver --log INFO
 
 # Test token server
-curl -s -X POST -H 'Content-Type: application/json' -H "Accept: application/json" --data '
-    {"authorization": "123", 
-     "subject": "123", 
+curl -u docriver:docriver -s -X POST -H 'Content-Type: application/json' -H "Accept: application/json" --data '
+    {"subject": "amit", 
      "audience": "docriver", 
      "permissions": {"txType": "submit", "resourceType": "claims", "documentCount": 10}}' \
-http://localhost:5001/token
+http://localhost:8080/token

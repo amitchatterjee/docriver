@@ -39,6 +39,10 @@ def get_payload_from_form(realm, request):
         'documents':[]
     }
 
+    auth = request.form.get('authorization')
+    if auth:
+        manifest['authorization'] = auth
+
     references = {
         'resourceType': request.form.get('refResourceType', default=''),
         'resourceId': request.form.get('refResourceId', default=''),

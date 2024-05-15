@@ -30,15 +30,64 @@
             //}
 
             function onPageLoad() {
+                const controller = new AbortController();
+                const signal = controller.signal;
+
+                const uuid = uuidv4();
+                const fetchPromise = fetch(new URL('http://localhost:8080/token'), {
+                    method: 'POST',
+                    cache: "no-cache",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    redirect: "follow",
+                    body: JSON.stringify({subject: "amit", 
+                        audience: "docriver", 
+                        permissions: {txType: "submit", resourceType: "claim", refResourceId: "123456789", documentCount: 10, tx:uuid}}),
+                    signal
+                });
+
+                fetchPromise.then(response => {
+                if (response.status == 200) {
+                    response.json().then(json=> {
+                        console.log(json);
+                        onToken(json.authorization, uuid)
+                    });
+                } else {
+                    response.text().then(error=> {
+                        alert(`Get token failed. Error: ${error}`);
+                    });
+                }
+            }).catch(error => {
+                console.error(`Error fetching token: ${error}`);
+                alert(`Error while fetching token: ${error}`);
+                }).finally(()=>{
+                    clearTimeout(timerId);
+                });
+        
+                const timerId = setTimeout(() => {
+                    controller.abort(); // Abort the fetch request
+                    console.error('Get token timed out');
+                    alert('Get token timed out');
+                }, 60000);   
+            }
+
+            function onToken(token, tx) {
                 let div = document.querySelector('#docriverUploaderJs');
                 let docUploader = document.createElement('docriver-uploader-basic');
-                // docUploader.setAttribute("tx", uuidv4());
+                //docUploader.setAttribute("tx", tx);
                 docUploader.setAttribute("docServer", "http://localhost:5000");
                 docUploader.setAttribute("documentType", "medicalRecord");
                 docUploader.setAttribute("realm", "p123456");
                 docUploader.setAttribute("refResourceType", "claim");
                 docUploader.setAttribute("refResourceId", "123456789");
                 docUploader.setAttribute("refResourceDescription", "Supporting documents for appeals");
+                // docUploader.setAttribute("onToken", "getToken");
+
+                if (token) {
+                    docUploader.setAttribute("authorization", token);
+                }
                 docUploader.addEventListener("result", onResult);
                 // docUploader.addEventListener("error", onError);
                 div.appendChild(docUploader);
@@ -48,9 +97,10 @@
                 e.preventDefault();
                 let form = e.currentTarget;
                 let formData = new FormData(form);
+
                 for (var pair of formData.entries()) {
                     console.log(`${pair[0]}: ${pair[1]}`); 
-                }       
+                }
                 resetUpload();
                 form.reset();
                 alert(`Appeals submitted.  Appeals Id: 123456`);
@@ -79,6 +129,7 @@
 
             <div class="docriverSubmissionBox">
                 <div class="docriverSubmissionResult"></div>
+                <br>
                 Submit supporting documents - select one or more files using the file selectors. Click on the "Submit Documents" button to submit:
                 <p></p>
                 <form id="docriverSubmissionForm" method="POST" enctype="multipart/form-data">

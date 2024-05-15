@@ -31,9 +31,10 @@ def parse_args(args):
 def get_token():
     payload = request.json
 
-    if 'authorization' not in payload:
+    authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
+
+    if not authorization:
         raise ValidationException('authorization is required')
-    authorization = payload['authorization']
 
     # TODO validate the code and make sure that the token has the required permissions
 
@@ -65,7 +66,7 @@ def handle_validation_error(e):
 
 @app.errorhandler(AuthorizationException)
 def handle_validation_error(e):
-    logging.warn("Authroization exception {}".format(str(e)))
+    logging.warn("Authorization exception {}".format(str(e)))
     return jsonify({'error': 'Authorizaton failed'}), 404, {'Content-Type': 'application/json'}
 
 @app.errorhandler(Exception)
@@ -81,4 +82,4 @@ if __name__ == '__main__':
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
     
     CORS(app, resources={r"/*": {"origins": "*"}})
-    app.run(port=args.httpPort, debug=args.debug)
+    app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
