@@ -17,7 +17,7 @@ class Uploader extends HTMLElement {
         const fileElementsList = [];
             let fileElements = form.querySelectorAll('input[type="file"]', 'input[name^="file"]');
             if (fileElements.length == 0) {
-                throw new Error('No file inputs found in the form')
+                throw new Error('No file inputs found in the form');
             }
             fileElements.forEach(fileElement=> {fileElementsList.push(fileElement.name);});
 
@@ -40,93 +40,105 @@ class Uploader extends HTMLElement {
         return uploader.dispatchEvent(event);
     }
 
+    uploadDocument(uploader, form, formData, resultFrame) {
+        resultFrame.hidden=false;
+
+        const controller = new AbortController();
+        const signal = controller.signal;
+
+        const fetchPromise = fetch(new URL(form.action), {
+            method: form.method,
+            cache: "no-cache",
+            headers: {
+                "Accept": "application/json",
+            },
+            redirect: "follow",
+            body: formData,
+            signal
+        });
+        fetchPromise.then(response => {
+            if (response.status == 200) {
+                response.json().then(json=> {
+                    console.log(json);
+                    if (!uploader.event(uploader, "result", json)) {
+                        return;
+                    }
+
+                    let txDiv = document.createElement('div');
+                    txDiv.innerHTML = `Transaction Reference: <b>${json.tx}</b> - ${json.documents.length} document(s) submitted:`;
+                    resultFrame.appendChild(document.createElement('p'));
+                    resultFrame.appendChild(txDiv);
+                    for(let i = 0; i < json.documents.length; i++) {
+                        let docDiv = document.createElement('div');
+                        docDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;(${i+1}) <b>${json.documents[i].document}</b>`;
+                        resultFrame.appendChild(docDiv);
+                    }
+                    form.reset();
+                });
+            } else {
+                response.text().then(error=> {
+                    if (!uploader.event(uploader, "error", 
+                        {
+                            error: `${error}`
+                        })) {
+                        return;
+                    }
+                    alert(`Document(s) rejected. Error: ${error}`);
+                });
+            }
+        }).catch(error => {
+            console.error(`Error submitting document(s): ${error}`);
+            if (!uploader.event(uploader, "error", 
+                {
+                    error: `${error}`
+                })) {
+                return;
+            }
+            alert(`Error while submitting documents: ${error}`);
+        }).finally(()=>{
+            clearTimeout(timerId);
+        });
+
+        const timerId = setTimeout(() => {
+            controller.abort(); // Abort the fetch request
+            console.error('Document submission timed out');
+            if (!uploader.event(uploader, "error", 
+                {
+                    error: "Document submission timed out"
+                })) {
+                return;
+            }
+            alert("Document submission timed out");
+        }, 60000);
+    }
+
     handleDocumentSubmission(uploader) {
         uploader.shadowRoot.querySelector("form").addEventListener('submit', function(event) {
             event.preventDefault();
             // console.log(uploader);
 
-            // let fn = window[uploader.getAttribute('onToken')];
-            // let x = fn();
-            // console.log("Received token: " + x); 
-
             const resultFrame = uploader.shadowRoot.querySelector(".docriverSubmissionResult");
             const form = event.currentTarget;
             const formData = new FormData(form);
-
             //console.log(form);
-            resultFrame.hidden=false;
 
             if (!uploader.valid(form, formData)) {
                 return;
             }
 
-            const controller = new AbortController();
-            const signal = controller.signal;
-
-            const fetchPromise = fetch(new URL(form.action), {
-                method: form.method,
-                cache: "no-cache",
-                headers: {
-                    "Accept": "application/json",
-                },
-                redirect: "follow",
-                body: formData,
-                signal
-            });
-            fetchPromise.then(response => {
-                if (response.status == 200) {
-                    response.json().then(json=> {
-                        console.log(json);
-                        if (!uploader.event(uploader, "result", json)) {
-                            return;
-                        }
-
-                        let txDiv = document.createElement('div');
-                        txDiv.innerHTML = `Transaction Reference: <b>${json.tx}</b> - ${json.documents.length} document(s) submitted:`;
-                        resultFrame.appendChild(document.createElement('p'));
-                        resultFrame.appendChild(txDiv);
-                        for(let i = 0; i < json.documents.length; i++) {
-                            let docDiv = document.createElement('div');
-                            docDiv.innerHTML = `&nbsp;&nbsp;&nbsp;&nbsp;(${i+1}) <b>${json.documents[i].document}</b>`;
-                            resultFrame.appendChild(docDiv);
-                        }
-                        form.reset();
+            let fn = window[uploader.getAttribute('onDocumentSubmit')];
+            if (fn) {
+                fn(formData, function(extraAttributes) {
+                    Object.entries(extraAttributes).forEach((entry) => {
+                        const [key, value] = entry;
+                        // console.log(`${key}: ${value}`);
+                        formData.set(key, value);
                     });
-                } else {
-                    response.text().then(error=> {
-                        if (!uploader.event(uploader, "error", 
-                            {
-                                error: `${error}`
-                            })) {
-                            return;
-                        }
-                        alert(`Document(s) rejected. Error: ${error}`);
-                    });
-                }
-            }).catch(error => {
-                console.error(`Error submitting document(s): ${error}`);
-                if (!uploader.event(uploader, "error", 
-                    {
-                        error: `${error}`
-                    })) {
-                    return;
-                }
-                alert(`Error while submitting documents: ${error}`);
-            }).finally(()=>{
-                clearTimeout(timerId);
-            });
-    
-            const timerId = setTimeout(() => {
-                controller.abort(); // Abort the fetch request
-                console.error('Document submission timed out');
-                if (!uploader.event(uploader, "error", 
-                    {
-                        error: "Document submission timed out"
-                    })) {
-                    return;
-                }
-                alert("Document submission timed out");
-            }, 60000);
+                    uploader.uploadDocument(uploader, form, formData, resultFrame);
+                });
+            } else {
+                uploader.uploadDocument(uploader, form, formData, resultFrame);
+            }
         });
     }
     

@@ -29,11 +29,10 @@
             //    e.preventDefault()
             //}
 
-            function onPageLoad() {
+            function onDocumentSubmit(formData, callback) {
                 const controller = new AbortController();
                 const signal = controller.signal;
-
-                const uuid = uuidv4();
+                const uuid =  uuidv4();
                 const fetchPromise = fetch(new URL('http://localhost:8080/token'), {
                     method: 'POST',
                     cache: "no-cache",
@@ -42,6 +41,7 @@
                         "Accept": "application/json",
                     },
                     redirect: "follow",
+                    // TODO read the resourceType refResourceId and documentCount from the formData
                     body: JSON.stringify({subject: "amit", 
                         audience: "docriver", 
                         permissions: {txType: "submit", resourceType: "claim", refResourceId: "123456789", documentCount: 10, tx:uuid}}),
@@ -52,7 +52,7 @@
                 if (response.status == 200) {
                     response.json().then(json=> {
                         console.log(json);
-                        onToken(json.authorization, uuid)
+                        callback({authorization: json.authorization, tx:uuid});
                     });
                 } else {
                     response.text().then(error=> {
@@ -73,21 +73,18 @@
                 }, 60000);   
             }
 
-            function onToken(token, tx) {
+            function onPageLoad() {
                 let div = document.querySelector('#docriverUploaderJs');
                 let docUploader = document.createElement('docriver-uploader-basic');
-                //docUploader.setAttribute("tx", tx);
+
                 docUploader.setAttribute("docServer", "http://localhost:5000");
                 docUploader.setAttribute("documentType", "medicalRecord");
                 docUploader.setAttribute("realm", "p123456");
                 docUploader.setAttribute("refResourceType", "claim");
                 docUploader.setAttribute("refResourceId", "123456789");
                 docUploader.setAttribute("refResourceDescription", "Supporting documents for appeals");
-                // docUploader.setAttribute("onToken", "getToken");
+                docUploader.setAttribute("onDocumentSubmit", "onDocumentSubmit");
 
-                if (token) {
-                    docUploader.setAttribute("authorization", token);
-                }
                 docUploader.addEventListener("result", onResult);
                 // docUploader.addEventListener("error", onError);
                 div.appendChild(docUploader);
