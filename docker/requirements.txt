@@ -10,3 +10,4 @@ pyjwt
 flickrapi
 pillow
 requests
+cryptography

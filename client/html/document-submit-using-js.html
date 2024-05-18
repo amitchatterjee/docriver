@@ -4,7 +4,7 @@
     <head>
         <title>Document Submission - Javascript</title>
 
-        <script src="http://localhost:5000/js/uploader.js"></script>
+        <script src="http://localhost:8080/js/uploader.js"></script>
         <script>
             function uuidv4() {
                 return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
@@ -77,7 +77,7 @@
                 let div = document.querySelector('#docriverUploaderJs');
                 let docUploader = document.createElement('docriver-uploader-basic');
 
-                docUploader.setAttribute("docServer", "http://localhost:5000");
+                docUploader.setAttribute("docServer", "http://localhost:8080");
                 docUploader.setAttribute("documentType", "medicalRecord");
                 docUploader.setAttribute("realm", "p123456");
                 docUploader.setAttribute("refResourceType", "claim");

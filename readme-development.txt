@@ -100,6 +100,9 @@ python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docri
 # Run the gateway with Authorization turned on
 python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
+# Same command as above - when running as a docker container
+docker run -it --rm --name docriver-gateway --network dev --user=1000:1000 -v $DOCRIVER_GW_HOME/src:/app -v $HOME/.ssh/docriver:/keystore -v $HOME/storage/docriver/raw:/raw -v $HOME/storage/docriver/untrusted:/untrusted -p 5000:5000 docriver-base:0.0.1-SNAPSHOT python /app/gateway.py --authKeystore  /keystore/truststore.p12 --authPassword docriver --rawFilesystemMount /raw --untrustedFilesystemMount /untrusted --dbHost mysql --scanHost clamav --objUrl minio:9000  --log INFO --debug
+
 # Run the gateway with remote debugging
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 

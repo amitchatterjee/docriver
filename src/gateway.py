@@ -80,5 +80,5 @@ if __name__ == '__main__':
 
     app = init_app()
     init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
-    app.run(port=args.httpPort, debug=args.debug)
+    app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
 

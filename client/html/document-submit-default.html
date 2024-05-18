@@ -7,11 +7,11 @@
         <!--
             The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
         -->
-        <link rel="stylesheet" type="text/css" href="http://localhost:5000/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
+        <link rel="stylesheet" type="text/css" href="http://localhost:8080/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
     </head>
 
     <body>
-        <script src="http://localhost:5000/js/uploader.js"></script>
+        <script src="http://localhost:8080/js/uploader.js"></script>
         Submit records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
@@ -20,7 +20,7 @@
                 tx="123456789"
             -->
             <docriver-uploader-basic
-                docServer="http://localhost:5000"
+                docServer="http://localhost:8080"
                 documentType="medicalRecord"
                 realm="p123456"
                 refResourceType="claim"
