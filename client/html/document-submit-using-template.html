@@ -2,7 +2,7 @@
 
 <html>
     <head>
-        <title>Document Submission - Javascript</title>
+        <title>Document Submission - Template</title>
 
         <script src="/js/uploader.js"></script>
         <script>
@@ -77,30 +77,6 @@
                 }, 60000);   
             }
 
-            function onPageLoad() {
-                let div = document.querySelector('#docriverUploaderJs');
-                let docUploader = document.createElement('docriver-uploader-basic');
-
-                // NOTE: to change to a different URL, if the document server host is different, use the docUploader.setAttribute("docServer", "XYZ")
-                // Example:
-                // let url = new URL(location.protocol + location.host);
-                // url.origin
-                // docUploader.setAttribute("docServer", "");
-
-                docUploader.setAttribute("documentType", "medicalRecord");
-                docUploader.setAttribute("realm", "p123456");
-                docUploader.setAttribute("refResourceType", "claim");
-                docUploader.setAttribute("refResourceId", "123456789");
-                docUploader.setAttribute("refResourceDescription", "Supporting documents for appeals");
-                docUploader.setAttribute("onDocumentSubmit", "onDocumentSubmit");
-                docUploader.setAttribute("onResult", "onResult");
-                docUploader.setAttribute("onError", "onError");
-
-                // docUploader.addEventListener("result", onResult);
-                // docUploader.addEventListener("error", onError);
-                div.appendChild(docUploader);
-            }
-
             function onAppealsSubmit(e) {
                 e.preventDefault();
                 let form = e.currentTarget;
@@ -123,7 +99,7 @@
         </script>
     </head>
 
-    <body onload="onPageLoad()">
+    <body>
         <template id="docSubmissionTemplate">
             <style>
                 .docriverSubmissionBox {
@@ -162,20 +138,32 @@
             Appeal payment decision for claim: <b>123456789</b>
         </h2>
         <p>
-            <div id="docriverUploaderJs">
-            </div>
-        </p>
-        <p>
             <form id="appealsForm" onsubmit="return onAppealsSubmit(event)" onreset="return onAppealsReset(event)">
                 <input type="hidden" id="submittedDocuments" name="documents" value="[]">
                 <input type="hidden" name="claim" value="123456789">
                 <label for="additionalInformation">Additional Information:</label>
                 <br>
                 <textarea id="additionalInformation" name="additionalInformation" rows="4" cols="50" required></textarea>
-                <br>
-                <input type="submit" value="Submit">
-                &nbsp;&nbsp;&nbsp;&nbsp;<input type="reset" value="Reset">
             </form>
+        </p>        
+        <p>
+            <div id="docriverUploader">
+                <docriver-uploader-basic
+                    documentType="medicalRecord"
+                    realm="p123456"
+                    refResourceType="claim"
+                    refResourceId="123456789"
+                    refResourceDescription="Supporting documents for appeals" 
+                    onDocumentSubmit="onDocumentSubmit"
+                    onResult="onResult"
+                    onError="onError">
+            </div>
         </p>
+        <p>
+            <input type="submit" form="appealsForm" value="Submit">
+            &nbsp;&nbsp;&nbsp;&nbsp;
+            <input type="reset" form="appealsForm" value="Reset">
+        </p>
+        
     </body>
 </html>

@@ -59,6 +59,7 @@ class Uploader extends HTMLElement {
         fetchPromise.then(response => {
             if (response.status == 200) {
                 response.json().then(json=> {
+                    console.log("Document submission result:");
                     console.log(json);
                     if (!uploader.event(uploader, "result", json)) {
                         return;
@@ -177,7 +178,8 @@ class Uploader extends HTMLElement {
             }
         }
         const form = shadowRoot.querySelector("form");
-        form.action = this.getAttribute('docServer') + "/tx/" + this.getAttribute("realm")
+        let docUrl = this.getAttribute('docServer')? this.getAttribute('docServer'): "";
+        form.action = docUrl + "/tx/" + this.getAttribute("realm")
         let resultFrame = shadowRoot.querySelector(".docriverSubmissionResult")
         resultFrame.hidden=true;
         resultFrame.innerHTML='';     
@@ -188,6 +190,18 @@ class Uploader extends HTMLElement {
         this.createHidden(form, 'refResourceType', this.getAttribute("refResourceType"));
         this.createHidden(form, 'refResourceId', this.getAttribute("refResourceId"));
         this.createHidden(form, 'refResourceDescription', this.getAttribute("refResourceDescription"));
+
+        let onResult = this.getAttribute('onResult');
+        if (onResult) {
+            let fn = window[onResult];
+            this.addEventListener("result", fn);
+        }
+
+        let onError = this.getAttribute('onError');
+        if (onError) {
+            let fn = window[onError];
+            this.addEventListener("error", fn);
+        }
 
         this.handleDocumentSubmission(this);
     }
