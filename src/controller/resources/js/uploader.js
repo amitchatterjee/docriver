@@ -241,5 +241,11 @@ function submitDocuments() {
 }
 
 function getSubmittedDocuments() {
+    // TODO
+}
 
+function hideSubmissionBox() {
+    let shadowRoot = document.querySelector('docriver-uploader-basic').shadowRoot;
+    let submissionBox = shadowRoot.querySelector("#docriverSubmissionBox");
+    submissionBox.hidden = true;
 }

@@ -1,0 +1,84 @@
+<!doctype html>
+
+<html>
+    <head>
+        <title>Document Viewer</title>
+
+        <script src="/js/viewer.js"></script>
+        <script>
+            function onDocumentView(viewer, callback) {
+                const controller = new AbortController();
+                const signal = controller.signal;
+                const document = viewer.getAttribute("document");
+
+                // NOTE: change to different URL if the token server host is different
+                const fetchPromise = fetch(new URL(location.protocol + location.host + '/token'), {
+                    method: 'POST',
+                    cache: "no-cache",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                    },
+                    redirect: "follow",
+                    // TODO read the resourceType refResourceId and documentCount from the formData
+                    body: JSON.stringify({subject: "amit", 
+                        audience: "docriver", 
+                        permissions: {txType: "get-document", document: document}}),
+                    signal
+                });
+
+                fetchPromise.then(response => {
+                if (response.status == 200) {
+                    response.json().then(json=> {
+                        console.log('Received token:');
+                        console.log(json);
+                        callback({authorization: json.authorization});
+                    });
+                } else {
+                    response.text().then(error=> {
+                        alert(`Get token failed. Error: ${error}`);
+                    });
+                }
+            }).catch(error => {
+                console.error(`Error fetching token: ${error}`);
+                alert(`Error while fetching token: ${error}`);
+                }).finally(()=>{
+                    clearTimeout(timerId);
+                });
+        
+                const timerId = setTimeout(() => {
+                    controller.abort(); // Abort the fetch request
+                    console.error('Get token timed out');
+                    alert('Get token timed out');
+                }, 60000);   
+            }
+        </script>
+    </head>
+
+    <body>
+        <template id="docViewerTemplate">
+            <div style="text-decoration: underline;cursor: pointer;">
+            <a>Click here to view document: 52936372309_d3055894a6_c.jpg-1716393047895</a>
+            </div>
+        </template>
+        <h2>
+            View document: <b>123456789</b>
+        </h2>  
+        <p>
+            <div id="docriverViewer">
+                <docriver-viewer-basic
+                    realm="p123456"
+                    document="52936372309_d3055894a6_c.jpg-1716393047895"
+                    onDocumentView="onDocumentView" />
+            </div>
+        </p>
+        <p>
+            <div id="docriverViewer">
+                <docriver-viewer-basic
+                    realm="p123456"
+                    document="52936370789_aa41435f1c_c.jpg-1716393047895"
+                    onDocumentView="onDocumentView" />
+            </div>
+        </p>
+    </body>
+</html>

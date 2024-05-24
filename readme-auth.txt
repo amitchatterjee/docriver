@@ -15,10 +15,6 @@ python $DOCRIVER_GW_HOME/src/token_issue.py --keystore $HOME/.ssh/docriver/docri
 # Run token server
 python $DOCRIVER_GW_HOME/src/reference_token_server.py --keystore $HOME/.ssh/docriver/docriver.p12  --password docriver --log INFO
 
-# Run the token server using docker
-docker run -it --rm --name docriver-token --network dev --user=1000:1000 -v $DOCRIVER_GW_HOME/src:/app -v $HOME/.ssh/docriver:/keystore -p 5001:5001 docriver-base:0.0.1-SNAPSHOT python /app/reference_token_server.py --keystore  /keystore/docriver.p12 --password docriver --log INFO --debug
- * Serving Flask app 'reference_token_server'
-
 # Test token server
 curl -u docriver:docriver -s -X POST -H 'Content-Type: application/json' -H "Accept: application/json" --data '
     {"subject": "amit", 

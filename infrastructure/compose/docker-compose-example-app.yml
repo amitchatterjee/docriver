@@ -1,0 +1,41 @@
+version: '3.9'
+networks:
+  default:
+    name: dev
+    external: true
+services:
+  token:
+    container_name: docriver-token
+    image: docriver-base:0.0.1-SNAPSHOT
+    user: 1000:1000
+    volumes:
+    - ${DOCRIVER_GW_HOME}/src:/app
+    - ${HOME}/.ssh/docriver:/keystore
+    command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--log", "INFO", "--debug"]
+    ports:
+    - 15001:5001
+  gateway:
+    container_name: docriver-gateway
+    image: docriver-base:0.0.1-SNAPSHOT
+    user: 1000:1000
+    volumes:
+    - ${DOCRIVER_GW_HOME}/src:/app
+    - ${HOME}/.ssh/docriver:/keystore
+    - ${HOME}/storage/docriver/raw:/raw
+    - ${HOME}/storage/docriver/untrusted:/untrusted
+    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--log", "INFO", "--debug"]
+    ports:
+    - 15000:5000
+  nginx:
+    container_name: nginx
+    image: nginx:${DOCRIVER_NGINX_VERSION:-latest}
+    volumes:
+    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd:ro
+    - ${DOCRIVER_GW_HOME}/client/html:/usr/share/nginx/html:ro
+    - ${HOME}/.ssh/docriver:/etc/nginx/certs
+    ports:
+    - ${DOCRIVER_NGINX_PORT:-8443}:443
+
+    
+

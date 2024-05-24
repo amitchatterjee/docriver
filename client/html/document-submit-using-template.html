@@ -19,7 +19,7 @@
                     urls.push(doc.document);
                 }
                 
-                submittedDocuments.push({[e.detail.tx]: urls});
+                submittedDocuments[e.detail.tx] = urls;
                 submittedDocumentsElement.value=JSON.stringify(submittedDocuments);
                 submittedDocumentsElement.dispatchEvent(new Event('input', { 'bubbles': true }));
             }
@@ -82,12 +82,37 @@
                 let form = e.currentTarget;
                 let formData = new FormData(form);
 
+                let fields = "";
                 for (var pair of formData.entries()) {
-                    console.log(`${pair[0]}: ${pair[1]}`); 
+                    if (pair[0] == 'documents') {
+                        continue;
+                    }
+                    fields = fields.concat(`${pair[0]}: <b>${pair[1]}</b><br>`); 
                 }
-                resetUpload();
-                form.reset();
-                alert(`Appeals submitted.  Appeals Id: 123456`);
+
+                
+                let txs = formData.get('documents');
+                if (txs) {
+                    docList = "documents:<br><ul>";
+                    let txEach = Object.values(JSON.parse(txs));
+                    for (let i = 0; i < txEach.length; i++) {
+                        for (let j = 0; j < txEach[i].length; j++) {
+                            docList = docList.concat("<li>" + txEach[i][j] + "</li>");
+                        }
+                    }
+                    docList = docList.concat("</ul>");
+                }
+                
+                // resetUpload();
+                // form.reset();
+                // alert(`Appeals submitted.  Appeals Id: 123456`);
+
+                let win = open('', target='_self');
+                win.document.body.innerHTML=`Appeals submitted.  Appeals Id: <b>123456</b>
+                    <p>
+                    ${fields}
+                    ${docList}
+                    </p>`;
             }
 
             function onAppealsReset(e) {
@@ -139,7 +164,7 @@
         </h2>
         <p>
             <form id="appealsForm" onsubmit="return onAppealsSubmit(event)" onreset="return onAppealsReset(event)">
-                <input type="hidden" id="submittedDocuments" name="documents" value="[]">
+                <input type="hidden" id="submittedDocuments" name="documents" value="{}">
                 <input type="hidden" name="claim" value="123456789">
                 <label for="additionalInformation">Additional Information:</label>
                 <br>

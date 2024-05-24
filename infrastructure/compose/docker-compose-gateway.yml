@@ -1,4 +1,4 @@
-version: '0.0.1-SNAPSHOT'
+version: '3.9'
 networks:
   default:
     name: dev
@@ -45,15 +45,6 @@ services:
     - ${DOCRIVER_UNTRUSTED_ROOT:-/}:/scandir
     ports:
     - ${DOCRIVER_CLAMAV_PORT:-3310}:3310
-  nginx:
-    container_name: nginx
-    image: nginx:${DOCRIVER_NGINX_VERSION:-latest}
-    volumes:
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd:ro
-    - ${DOCRIVER_GW_HOME}/client/html:/usr/share/nginx/html:ro
-    ports:
-    - ${DOCRIVER_NGINX_PORT:-8080}:80
 volumes:
   mysqldata: null
   miniodata: null

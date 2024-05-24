@@ -92,7 +92,7 @@ def validate_manifest(payload):
     
     for document in payload['documents']:
         if 'document' not in document or not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['document']):
-            raise ValidationException('document not found or document is not valid')
+            raise ValidationException('document not found or document name is not valid')
         
         if 'content' in document and 'path' in document['content']:
             if not re.match('^[a-zA-Z0-9_\/\.\-]+$', document['content']['path']):
