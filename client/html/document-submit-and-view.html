@@ -7,11 +7,6 @@
         <script src="/js/uploader.js"></script>
         <script src="/js/viewer.js"></script>
         <script>
-            function uuidv4() {
-                return "10000000-1000-4000-8000-100000000000".replace(/[018]/g, c =>
-                    (+c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> +c / 4).toString(16));
-            }
-
             function onResult(e) {
                 let submittedDocumentsElement = document.querySelector('#submittedDocuments');
                 let submittedDocuments = JSON.parse(submittedDocumentsElement.value);
@@ -48,8 +43,7 @@
                     },
                     redirect: "follow",
                     // TODO read the resourceType refResourceId and documentCount from the formData
-                    body: JSON.stringify({subject: "amit", 
-                        audience: "docriver", 
+                    body: JSON.stringify({audience: "docriver", 
                         permissions: permissions}),
                     signal
                 });
@@ -59,7 +53,7 @@
                     response.json().then(json=> {
                         console.log('Received token:');
                         console.log(json);
-                        callback({authorization: json.authorization, tx: permissions.tx});
+                        callback({authorization: json.authorization, tx: json.token.permissions.tx});
                     });
                 } else {
                     response.text().then(error=> {
@@ -81,7 +75,7 @@
             }
 
             function onDocumentSubmit(formData, callback) {
-                getToken(callback, {txType: "submit", resourceType: "claim", refResourceId: "123456789", documentCount: 100, tx: uuidv4()});
+                getToken(callback, {txType: "submit", resourceType: "claim", refResourceId: "123456789", documentCount: 100});
             }
 
             function onDocumentView(viewer, callback) {

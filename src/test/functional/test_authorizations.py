@@ -21,6 +21,11 @@ def test_submit_with_unauthorized_realm(cleanup, client_with_security):
         keystore_file=issuer_keystore_path('docriver'), permissions={'txType': 'submit', 'realm': 'p123456'})
     assert (401,'Not authorized for this operation') == result[0:2]
 
+def test_submit_with_unauthorized_tx(cleanup, client_with_security):
+    result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'),
+        keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'submit', 'realm': TEST_REALM, 'tx': '123456'})
+    assert (401,'Not authorized for this operation') == result[0:2]
+
 def test_submit_with_invalid_tx_type(cleanup, client_with_security):
     result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'),
         keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'delete'})

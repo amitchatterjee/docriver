@@ -2,6 +2,8 @@ import argparse
 import logging
 import os
 import sys
+import base64
+import uuid
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_accept import accept
@@ -33,15 +35,6 @@ def get_token():
 
     authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
 
-    if not authorization:
-        raise ValidationException('authorization is required')
-
-    # TODO validate the code and make sure that the token has the required permissions
-
-    if 'subject' not in payload:
-        raise ValidationException('subject is required')
-    subject = payload['subject']
-    
     if 'audience' not in payload:
         raise ValidationException('audience is required')
     audience = payload['audience']
@@ -49,15 +42,30 @@ def get_token():
     if 'permissions' not in payload:
         raise ValidationException('permissions is required')
     permissions = payload['permissions']
+    
+    splits = authorization.split()
+    if splits[0].lower() != 'basic':
+        raise ValidationException('Only basic authentication is supported')
+    
+    user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
+    splits = user_passwd.split(':')
 
-    expires = payload['expires'] if 'expires' in payload else 300
+    passwd = splits[1]
+    subject = splits[0]
+
+    # TODO validate the authorization and override parameters, as needed
+    
+    permissions['tx'] = str(uuid.uuid4())
+
+    # TODO pass it as command line param instead of hardcoding    
+    expires = 60
 
     resource = payload['resource'] if 'resource' in payload else 'document'
 
     encoded, payload = issue(private_key, signer_cn, subject, audience, expires, resource, permissions)
 
     # TODO fix this
-    logging.info("Token issued to {}".format(authorization))
+    logging.info("Token issued to {}".format(subject))
     return jsonify({'authorization': 'Bearer ' + encoded, 'token': payload}), 200, {'Content-Type': 'application/json'}
 
 @app.errorhandler(ValidationException)

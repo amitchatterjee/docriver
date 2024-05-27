@@ -19,6 +19,8 @@ def authorize_submit(public_keys, token, audience, payload):
         raiseif('txType' not in auth['permissions'], 'txType not specified')
         raiseif(auth['permissions']['txType'] != 'submit', 'transaction type invalid')
 
+        raiseif('tx' in auth['permissions'] and auth['permissions']['tx'] != payload['tx'], 'tx invalid')
+
         # TODO check if we can avoid the int conversion below
         document_count =  int(auth['permissions']['documentCount']) if 'documentCount' in auth['permissions'] else 1
         raiseif (document_count >= 0 and len(payload['documents']) > document_count, "Document count exceeds allowed")
