@@ -89,7 +89,7 @@ pip install debugpy
 }
 
 #######################################################
-# Start components
+# Start infrastructure components
 #######################################################
 # Start infrastructure components needed for the document repo server
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach

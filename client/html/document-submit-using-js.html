@@ -93,32 +93,12 @@
                 docUploader.setAttribute("refResourceId", "123456789");
                 docUploader.setAttribute("refResourceDescription", "Supporting documents for appeals");
                 docUploader.setAttribute("onDocumentSubmit", "onDocumentSubmit");
-                docUploader.setAttribute("onResult", "onResult");
-                docUploader.setAttribute("onError", "onError");
+                //docUploader.setAttribute("onResult", "onResult");
+                //docUploader.setAttribute("onError", "onError");
 
                 // docUploader.addEventListener("result", onResult);
                 // docUploader.addEventListener("error", onError);
                 div.appendChild(docUploader);
-            }
-
-            function onAppealsSubmit(e) {
-                e.preventDefault();
-                let form = e.currentTarget;
-                let formData = new FormData(form);
-
-                for (var pair of formData.entries()) {
-                    console.log(`${pair[0]}: ${pair[1]}`); 
-                }
-                resetUpload();
-                form.reset();
-                alert(`Appeals submitted.  Appeals Id: 123456`);
-            }
-
-            function onAppealsReset(e) {
-                e.preventDefault();
-                let form = e.currentTarget;       
-                resetUpload();
-                form.reset();
             }
         </script>
     </head>
@@ -164,18 +144,6 @@
         <p>
             <div id="docriverUploaderJs">
             </div>
-        </p>
-        <p>
-            <form id="appealsForm" onsubmit="return onAppealsSubmit(event)" onreset="return onAppealsReset(event)">
-                <input type="hidden" id="submittedDocuments" name="documents" value="[]">
-                <input type="hidden" name="claim" value="123456789">
-                <label for="additionalInformation">Additional Information:</label>
-                <br>
-                <textarea id="additionalInformation" name="additionalInformation" rows="4" cols="50" required></textarea>
-                <br>
-                <input type="submit" value="Submit">
-                &nbsp;&nbsp;&nbsp;&nbsp;<input type="reset" value="Reset">
-            </form>
         </p>
     </body>
 </html>

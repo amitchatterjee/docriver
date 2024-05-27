@@ -34,15 +34,26 @@ class Viewer extends HTMLElement {
         if (template != null) {
             console.log("Since a template has been provided, going to use it");
             const clone = template.content.cloneNode(true);
+            console.log("clone:");
             shadowRoot.append(clone);
         } else {
             console.log("Since a template has not been provided, going to use the default view")
             shadowRoot.innerHTML = `
             <div class="docriverViewerBox">
-                <a>Click here to view the document</a>
+                <a style="text-decoration: underline;cursor: pointer;">
+                <span id="docriverViewerLabel">View document: ${this.getAttribute('document')}</span>
+                </a>
             </div>
             `;
             this.addStyles();
+
+            let label = this.getAttribute("label");
+            if (label != null) {
+                const labelElement = shadowRoot.querySelector("#docriverViewerLabel");
+                console.log(labelElement);
+                label = label.replace(/{{document}}/g, this.getAttribute("document"));
+                labelElement.innerHTML = label;
+            }
         }
 
         this.handleDocumentView(this);

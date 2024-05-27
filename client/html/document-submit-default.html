@@ -7,11 +7,11 @@
         <!--
             The crossorigin=anonymous is needed because Chrome doesn't allow cross origin scripts from accessing the stylesheets and CSS rules. The docriver javascript accesses the stylesheets to apply docriver-sepcific styles. More information: https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/crossorigin
         -->
-        <link rel="stylesheet" type="text/css" href="http://localhost:8080/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
+        <link rel="stylesheet" type="text/css" href="/css/docriver.css" onload="console.log('css loaded')" crossorigin="anonymous"/>
     </head>
 
     <body>
-        <script src="http://localhost:8080/js/uploader.js"></script>
+        <script src="/js/uploader.js"></script>
         Submit records for:<br/>
             &nbsp;&nbsp;&nbsp;&nbsp;claim: <b>123456789</b>
         <p>
@@ -20,12 +20,12 @@
                 tx="123456789"
             -->
             <docriver-uploader-basic
-                docServer="http://localhost:8080"
                 documentType="medicalRecord"
                 realm="p123456"
                 refResourceType="claim"
                 refResourceId="123456789"
                 refResourceDescription="Blah blah blah"
+                authorization="Bearer eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJkb2NyaXZlciIsImF1ZCI6WyJkb2NyaXZlciJdLCJpYXQiOjE3MTY3NzcwNjIsIm5iZiI6MTcxNjc3NzA2MiwiZXhwIjoxNzQ4MzEzMDYyLCJzdWIiOiJhbWl0IiwicmVzb3VyY2UiOiJkb2N1bWVudCIsInBlcm1pc3Npb25zIjp7InR4VHlwZSI6InN1Ym1pdCIsInJlc291cmNlVHlwZSI6ImNsYWltIiwiZG9jdW1lbnRDb3VudCI6MTA5fX0.gfrpqOkyqclTdiOjkNHkskds8QpqD1buzzREOouVYQ5S5RMeE0mCqxwFs3hk5ljNwNwSy41nPOvPEKE1Sbtk8a9FMdN16miksJY9G3M8fZZ5QBPlbAggWPgAiVhmkrWPPqYg2Hgs9wdRovVq-xCmlc531Xh7ChnnZBMagWQWHp7_RrLV6V47IbkA30cusyAy-Wq5qmmIJVfXba2e3HdYglGuWwTjAauugJrWCqkP1WAYPvg_JnTIxql7dZLXTajw7B6RHYA1WuUthYI_-66VWZ7jpQsikMPlFdCyp7zvI72U2pkrdsGpXN5jj06DGHHmKEaWyBA_IbPSt9Q6Nj3UCw"
                 label="Select one or more supporting documents you wish to submit for claim: {{refResourceId}}. Click the Submit button when done"/>
         </p>
     </body>
