@@ -26,12 +26,23 @@ services:
     command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--log", "INFO", "--debug"]
     ports:
     - 15000:5000
+  # nginx:
+  #   container_name: nginx
+  #   image: nginx:${DOCRIVER_NGINX_VERSION:-latest}
+  #   volumes:
+  #   - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
+  #   - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd:ro
+  #   - ${DOCRIVER_GW_HOME}/client/html:/usr/share/nginx/html:ro
+  #   - ${HOME}/.ssh/docriver:/etc/nginx/certs
+  #   ports:
+  #   - ${DOCRIVER_NGINX_PORT:-8443}:443
   nginx:
     container_name: nginx
-    image: nginx:${DOCRIVER_NGINX_VERSION:-latest}
+    image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
+    command: nginx -g 'daemon off;'
     volumes:
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/conf.d/default.conf:ro
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd:ro
+    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/nginx.conf
+    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd
     - ${DOCRIVER_GW_HOME}/client/html:/usr/share/nginx/html:ro
     - ${HOME}/.ssh/docriver:/etc/nginx/certs
     ports:

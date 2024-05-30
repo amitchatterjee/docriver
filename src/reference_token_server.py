@@ -35,6 +35,25 @@ def get_token():
 
     authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
 
+    subject = None
+    if authorization:
+        splits = authorization.split()
+        if splits[0].lower() != 'basic':
+            raise ValidationException('Only basic authentication is supported')
+        
+        user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
+        splits = user_passwd.split(':')
+
+        passwd = splits[1]
+        subject = splits[0]
+
+         # TODO validate the authorization and override parameters, as needed
+    elif 'session' in request.cookies:
+        # TODO validation the session cookie
+        subject = 'OKTAUSER'
+    else:
+        raise AuthorizationException('Unauthorized')
+
     if 'audience' not in payload:
         raise ValidationException('audience is required')
     audience = payload['audience']
@@ -42,19 +61,7 @@ def get_token():
     if 'permissions' not in payload:
         raise ValidationException('permissions is required')
     permissions = payload['permissions']
-    
-    splits = authorization.split()
-    if splits[0].lower() != 'basic':
-        raise ValidationException('Only basic authentication is supported')
-    
-    user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
-    splits = user_passwd.split(':')
-
-    passwd = splits[1]
-    subject = splits[0]
-
-    # TODO validate the authorization and override parameters, as needed
-    
+        
     permissions['tx'] = str(uuid.uuid4())
 
     # TODO pass it as command line param instead of hardcoding    
