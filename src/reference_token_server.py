@@ -38,18 +38,20 @@ def get_token():
     subject = None
     if authorization:
         splits = authorization.split()
-        if splits[0].lower() != 'basic':
-            raise ValidationException('Only basic authentication is supported')
-        
-        user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
-        splits = user_passwd.split(':')
-
-        passwd = splits[1]
-        subject = splits[0]
-
+        if splits[0].lower() == 'basic':
+            user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
+            splits = user_passwd.split(':')
+            passwd = splits[1]
+            subject = splits[0]
+            # Authenticate the user
+        elif splits[0].lower() == 'bearer':
+            # TODO validate the bearer token
+            subject = 'OKTAUSER'
+        else:
+            raise AuthorizationException('Unauthorized')
          # TODO validate the authorization and override parameters, as needed
-    elif 'session' in request.cookies:
-        # TODO validation the session cookie
+    elif 'auth' in request.cookies:
+        # TODO validate the bearer token
         subject = 'OKTAUSER'
     else:
         raise AuthorizationException('Unauthorized')

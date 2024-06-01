@@ -7,6 +7,13 @@
         <script src="/js/uploader.js"></script>
         <script src="/js/viewer.js"></script>
         <script>
+            function getCookieValue(name) {
+                const regex = new RegExp(`(^| )${name}=([^;]+)`)
+                const match = document.cookie.match(regex)
+                if (match) {
+                    return match[2]
+                }
+            }
             function onResult(e) {
                 let submittedDocumentsElement = document.querySelector('#submittedDocuments');
                 let submittedDocuments = JSON.parse(submittedDocumentsElement.value);
@@ -31,6 +38,7 @@
             }
 
             function getToken(callback, permissions) {
+                let auth = getCookieValue('auth')
                 const controller = new AbortController();
                 const signal = controller.signal;
                 // NOTE: change to different URL if the token server host is different
@@ -44,7 +52,7 @@
                     redirect: "follow",
                     // TODO read the resourceType refResourceId and documentCount from the formData
                     body: JSON.stringify({audience: "docriver", 
-                        permissions: permissions}),
+                        permissions: permissions, authorization: auth}),
                     signal
                 });
 
