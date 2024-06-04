@@ -11,7 +11,7 @@ services:
     volumes:
     - ${DOCRIVER_GW_HOME}/src:/app
     - ${HOME}/.ssh/docriver:/keystore
-    command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "https://dev-60920924.okta.com/oauth2/default", "--oktaAud", "api://default", "--log", "INFO", "--debug"]
+    command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--log", "INFO", "--debug"]
     # The portmapping must be enabled only for debugging. Any requests should be proxied after authentication/authorization
     # ports:
     # - 15001:5001
