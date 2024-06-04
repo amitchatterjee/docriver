@@ -11,6 +11,7 @@ from flask_accept import accept
 from exceptions import ValidationException, AuthorizationException
 from auth.keystore import get_entries
 from auth.token import issue
+from okta.verify import OktaTokenValidator
 
 app = Flask(__name__)
 
@@ -22,6 +23,12 @@ def parse_args(args):
                         help='A PKCS12 keystore file')
     parser.add_argument('--password', default=None,
                         help='Keystore password')
+    
+    parser.add_argument('--oktaUrl', default=None,
+                        help='OKTA token URL')
+    parser.add_argument('--oktaAud', default=None,
+                        help='OKTA token audience')
+    
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
     parser.add_argument('--debug', action='store_true')
 
@@ -33,9 +40,9 @@ def parse_args(args):
 def get_token():
     payload = request.json
 
-    authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
-
     subject = None
+    assigned_permissions = None
+    authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
     if authorization:
         splits = authorization.split()
         if splits[0].lower() == 'basic':
@@ -43,18 +50,19 @@ def get_token():
             splits = user_passwd.split(':')
             passwd = splits[1]
             subject = splits[0]
-            # Authenticate the user
+            assigned_permissions = None
+            # TODO Authenticate the user and get the permissions from the user profile
         elif splits[0].lower() == 'bearer':
-            # TODO validate the bearer token
-            subject = 'OKTAUSER'
+            subject,assigned_permissions = extract_subject_and_permissions(splits[1])
         else:
-            raise AuthorizationException('Unauthorized')
-         # TODO validate the authorization and override parameters, as needed
+            raise ValidationException('Unsupported authorization method')
     elif 'auth' in request.cookies:
-        # TODO validate the bearer token
-        subject = 'OKTAUSER'
+        splits = authorization.split()
+        if splits[0].lower() != 'digest':
+            raise ValidationException('Unsupported authorization method')
+        subject,assigned_permissions = extract_subject_and_permissions(splits[1])
     else:
-        raise AuthorizationException('Unauthorized')
+        raise ValidationException('Authorization not found')
 
     if 'audience' not in payload:
         raise ValidationException('audience is required')
@@ -63,7 +71,9 @@ def get_token():
     if 'permissions' not in payload:
         raise ValidationException('permissions is required')
     permissions = payload['permissions']
-        
+
+    # TODO validate the permissions assigned to the user against the requested permissions
+
     permissions['tx'] = str(uuid.uuid4())
 
     # TODO pass it as command line param instead of hardcoding    
@@ -76,6 +86,12 @@ def get_token():
     # TODO fix this
     logging.info("Token issued to {}".format(subject))
     return jsonify({'authorization': 'Bearer ' + encoded, 'token': payload}), 200, {'Content-Type': 'application/json'}
+
+def extract_subject_and_permissions(token):
+    headers, claims, signing_inputs, signature = okta_token_validator.verify(token)
+    subject = claims['sub']
+    permissions = claims['docriverPermissions'] if 'docriverPermissions' in claims else None
+    return subject,permissions
 
 @app.errorhandler(ValidationException)
 def handle_validation_error(e):
@@ -92,11 +108,15 @@ def handle_internal_error(e):
     return jsonify({'error': str(e)}), 500, {'Content-Type': 'application/json'}
 
 if __name__ == '__main__':
-    global private_key, signer_cn, signer_cert
+    global private_key, signer_cn, signer_cert, okta_token_validator
     args = parse_args(sys.argv[1:])
     logging.basicConfig(level=args.log)
 
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
     
+    okta_token_validator = None
+    if args.oktaUrl:
+        okta_token_validator = OktaTokenValidator(args.oktaUrl, args.oktaAud)
+
     CORS(app, resources={r"/*": {"origins": "*"}})
     app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)

@@ -65,6 +65,30 @@ services:
   #     depends_on:
   #       - mysql
   #     command: "start-dev --proxy-headers=xforwarded --hostname-strict=false --hostname-strict-https=false --hostname-url=https://keycloak:8443/keycloak"
+
+  gateway:
+    container_name: docriver-gateway
+    image: docriver-base:0.0.1-SNAPSHOT
+    depends_on:
+      mysql:
+        condition: service_healthy
+        # restart: true
+      minio:
+        condition: service_started
+        # restart: true
+      clamav:
+        condition: service_started
+        # restart: true
+    user: 1000:1000
+    volumes:
+    - ${DOCRIVER_GW_HOME}/src:/app
+    - ${HOME}/.ssh/docriver:/keystore
+    - ${HOME}/storage/docriver/raw:/raw
+    - ${HOME}/storage/docriver/untrusted:/untrusted
+    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--log", "INFO", "--debug"]
+    # The portmapping must be enabled only for debugging. Any requests should be proxied after authentication/authorization
+    # ports:
+    # - 15000:5000
 volumes:
   mysqldata: null
   miniodata: null

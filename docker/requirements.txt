@@ -11,3 +11,4 @@ flickrapi
 pillow
 requests
 cryptography
+okta-jwt-verifier
