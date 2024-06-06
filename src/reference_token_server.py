@@ -4,6 +4,7 @@ import os
 import sys
 import base64
 import uuid
+import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_accept import accept
@@ -14,6 +15,16 @@ from auth.token import issue
 from okta.verify import OktaTokenValidator
 
 app = Flask(__name__)
+
+# TODO read from files
+allowed_operations = {
+    'appealsSupport': ['get-document', 'submit', 'delete'],
+    'appealsAuditor': ['get-document']
+}
+
+allowed_resources = {
+    'appealsSupport': ['claim']
+}
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -35,6 +46,49 @@ def parse_args(args):
     args = parser.parse_args(args)
     # TODO add validation
     return args
+
+def authorize_element(assigned_permissions, requested_permissions, table, attribute):
+    assigned_roles = assigned_permissions["roles"]
+    for assigned_role in assigned_roles:
+        if assigned_role in table:
+            values = table[assigned_role]
+        if requested_permissions[attribute] in values:
+            return
+        
+    raise AuthorizationException("Unauthorized attribute {}/{}".format(attribute, requested_permissions[attribute]))
+
+def authorize_request(assigned_permissions, requested_permissions):
+    if not assigned_permissions:
+        raise AuthorizationException("Not authorized for this application")
+    
+    try:
+        assigned = json.loads(assigned_permissions)
+
+        if 'realms' not in assigned:
+            raise ValidationException("Realms not specified in the assigned permission")
+        
+        if 'roles' not in assigned:
+            raise ValidationException("Roles not specified in the assigned permission")
+        
+        if 'resources' not in assigned:
+            raise ValidationException("Resources not specified in the assigned permission")
+
+        if 'realm' in requested_permissions:
+            # Check if the requested realm is in the assigned realm
+            if not next((e for e in assigned['realms'] if e in requested_permissions['realm']), None):
+                raise AuthorizationException("Realm unathorized")
+        else:
+            # Create a regex with all the assigned realms
+            requested_permissions['realm'] = "({})".format('|'.join(assigned['realms']))
+        
+        authorize_element(assigned, requested_permissions, allowed_operations, 'txType')
+
+        if requested_permissions['txType'] == 'submit':
+            authorize_element(assigned, requested_permissions, allowed_resources, 'resourceType')
+
+    except(json.decoder.JSONDecodeError):
+        raise ValidationException("Assigned permissions not in JSON format")
+
 
 @app.route('/token', methods=['POST'])
 def get_token():
@@ -65,18 +119,19 @@ def get_token():
 
     if 'permissions' not in payload:
         raise ValidationException('permissions is required')
-    permissions = payload['permissions']
+    requested_permissions = payload['permissions']
 
-    # TODO validate the permissions assigned to the user against the requested permissions
+    # Validate the permissions assigned to the user against the requested permissions
+    authorize_request(assigned_permissions,requested_permissions)
 
-    permissions['tx'] = str(uuid.uuid4())
+    requested_permissions['tx'] = str(uuid.uuid4())
 
     # TODO pass it as command line param instead of hardcoding    
     expires = 60
 
     resource = payload['resource'] if 'resource' in payload else 'document'
 
-    encoded, payload = issue(private_key, signer_cn, subject, audience, expires, resource, permissions)
+    encoded, payload = issue(private_key, signer_cn, subject, audience, expires, resource, requested_permissions)
 
     # TODO fix this
     logging.info("Token issued to {}".format(subject))
@@ -94,8 +149,8 @@ def handle_validation_error(e):
 
 @app.errorhandler(AuthorizationException)
 def handle_validation_error(e):
-    logging.warn("Authorization exception {}".format(str(e)))
-    return jsonify({'error': 'Authorizaton failed'}), 404, {'Content-Type': 'application/json'}
+    logging.warn("Authorization exception: {}".format(str(e)))
+    return jsonify({'error': 'Authorizaton failed'}), 403, {'Content-Type': 'application/json'}
 
 @app.errorhandler(Exception)
 def handle_internal_error(e):
