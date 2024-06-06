@@ -7,9 +7,12 @@ echo docriver:$(echo 'docriver' | openssl passwd -apr1 -stdin) > $DOCRIVER_GW_HO
 2. Login to https://dev-XXXX.admin.okta.com
 2. Navigate to Applications->Applications->Create App Integration:
     Name: docriver
-    Redirect URL:
+    Redirect URIs:
         https://localhost:8443/redirect
         https://appeals.quik-j.com:8443/redirect
+    Sign-out redirect URIs: 
+        https://localhost:8443
+        https://appeals.quik-j.com:8443
 3. Navigate to Directory->Profile Editor->Profile Editor->user (default):
     Add attribute: docriverPermissions
 4. Navigate to Directory->Profile Editor->Profile Editor->docriver (oidc_client):
@@ -27,6 +30,7 @@ echo docriver:$(echo 'docriver' | openssl passwd -apr1 -stdin) > $DOCRIVER_GW_HO
     export DOCRIVER_OIDC_DISCOVERY_URL="https://dev-XXXXX.okta.com/oauth2/default/.well-known/openid-configuration"
     export DOCRIVER_OIDC_REDIRECT_URL="https://appeals.quik-j.com:8443/redirect"
     export DOCRIVER_AUTH_URL="https://dev-XXXXXX.okta.com/oauth2/default"
+    export DOCRIVER_OIDC_POST_LOGOUT_REDIRECT_URL="https://appeals.quik-j.com:8443"
 
 # Create TLS key and certificate for https access
 openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -keyout $HOME/.ssh/docriver/nginx.key -out $HOME/.ssh/docriver/nginx.crt

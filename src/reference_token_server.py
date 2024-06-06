@@ -42,7 +42,7 @@ def get_token():
 
     subject = None
     assigned_permissions = None
-    authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization', default=None)
+    authorization = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization') if 'Authorization' in request.headers else request.cookies['auth'] if 'auth' in request.cookies else None
     if authorization:
         splits = authorization.split()
         if splits[0].lower() == 'basic':
@@ -56,11 +56,6 @@ def get_token():
             subject,assigned_permissions = extract_subject_and_permissions(splits[1])
         else:
             raise ValidationException('Unsupported authorization method')
-    elif 'auth' in request.cookies:
-        splits = authorization.split()
-        if splits[0].lower() != 'digest':
-            raise ValidationException('Unsupported authorization method')
-        subject,assigned_permissions = extract_subject_and_permissions(splits[1])
     else:
         raise ValidationException('Authorization not found')
 
