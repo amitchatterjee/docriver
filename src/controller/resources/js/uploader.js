@@ -179,6 +179,8 @@ class Uploader extends HTMLElement {
         }
         const form = shadowRoot.querySelector("form");
         let docUrl = this.getAttribute('docServer')? this.getAttribute('docServer'): "";
+        console.log('docUrl');
+        console.log(docUrl);
         form.action = docUrl + "/tx/" + this.getAttribute("realm")
         let resultFrame = shadowRoot.querySelector(".docriverSubmissionResult")
         resultFrame.hidden=true;

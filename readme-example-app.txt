@@ -8,11 +8,11 @@ echo docriver:$(echo 'docriver' | openssl passwd -apr1 -stdin) > $DOCRIVER_GW_HO
 2. Navigate to Applications->Applications->Create App Integration:
     Name: docriver
     Redirect URIs:
-        https://localhost:8443/redirect
-        https://gateway.quik-j.com:8443/redirect
+        https://localhost/redirect
+        https://gateway.quik-j.com/redirect
     Sign-out redirect URIs: 
-        https://localhost:8443
-        https://gateway.quik-j.com:8443
+        https://localhost
+        https://gateway.quik-j.com
 3. Navigate to Directory->Profile Editor->Profile Editor->user (default):
     Add attribute: docriverPermissions
 4. Navigate to Directory->Profile Editor->Profile Editor->docriver (oidc_client):

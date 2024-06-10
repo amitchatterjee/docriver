@@ -4,8 +4,8 @@
     <head>
         <title>Create Appeals</title>
 
-        <script src="https://docriver.quik-j.com:8443/js/uploader.js"></script>
-        <script src="https://docriver.quik-j.com:8443/js/viewer.js"></script>
+        <script src="https://docriver.quik-j.com/js/uploader.js"></script>
+        <script src="https://docriver.quik-j.com/js/viewer.js"></script>
         <script>
             function getCookieValue(name) {
                 const regex = new RegExp(`(^| )${name}=([^;]+)`)
@@ -110,7 +110,7 @@
                     for (let i = 0; i < txEach.length; i++) {
                         for (let j = 0; j < txEach[i].length; j++) {
                             let viewerTag = `<docriver-viewer-basic
-                                docServer="https://docriver.quik-j.com:8443"
+                                docServer="https://docriver.quik-j.com"
                                 realm="p123456"
                                 document="${txEach[i][j]}"
                                 onDocumentView="onDocumentView" 
@@ -196,7 +196,7 @@
         <p>
             <div id="docriverUploader">
                 <docriver-uploader-basic
-                    docServer="https://docriver.quik-j.com:8443"
+                    docServer="https://docriver.quik-j.com"
                     documentType="medicalRecord"
                     realm="p123456"
                     refResourceType="claim"

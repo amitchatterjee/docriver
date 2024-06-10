@@ -4,7 +4,7 @@ class Viewer extends HTMLElement {
     }
 
     viewDocument(viewer, params) {
-        console.log(params);
+        // console.log(params);
         let docServer = viewer.getAttribute('docServer')? this.getAttribute('docServer'): "";
         let url = docServer + '/document/' + this.getAttribute("realm") + '/' + this.getAttribute("document") + '?authorization=' + params.authorization;
         let target = viewer.getAttribute('target')? this.getAttribute('target'): "_blank";
