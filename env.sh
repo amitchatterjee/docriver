@@ -15,9 +15,23 @@ export DOCRIVER_NGINX_PORT=8443
 
 export DOCRIVER_UNTRUSTED_ROOT=$HOME/storage/docriver/untrusted
 
+# Make changes as needed. Many of these settings will need to match with the OIDC and proxy settings. Example - 
+# OIDC/OAUTH2 settings:
+# export DOCRIVER_OIDC_CLIENTID="XXXXXX"
+# export DOCRIVER_OIDC_SECRET="YYYYYY"
+# export DOCRIVER_OIDC_DISCOVERY_URL="https://dev-XXXXX.okta.com/oauth2/default/.well-known/openid-configuration"
+# export DOCRIVER_OIDC_REDIRECT_URL="https://gateway.quik-j.com:8443/redirect"
+# export DOCRIVER_AUTH_URL="https://dev-XXXXXX.okta.com/oauth2/default"
+# export DOCRIVER_OIDC_POST_LOGOUT_REDIRECT_URL="https://gateway.quik-j.com:8443"
+# Proxy settings:
+# export DOCRIVER_MINIO_CONSOLE_URL="https://gateway.quik-j.com:8443/minio/console"
+
 export DOCRIVER_OIDC_CLIENTID=
 export DOCRIVER_OIDC_SECRET=
 export DOCRIVER_OIDC_DISCOVERY_URL=
 export DOCRIVER_OIDC_REDIRECT_URL=
+export DOCRIVER_AUTH_URL=
+export DOCRIVER_MINIO_CONSOLE_URL=
+export DOCRIVER_MINIO_CONSOLE_URL=
 
 export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/src

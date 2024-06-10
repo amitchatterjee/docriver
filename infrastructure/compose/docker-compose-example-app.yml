@@ -15,27 +15,3 @@ services:
     # The portmapping must be enabled only for debugging. Any requests should be proxied after authentication/authorization
     # ports:
     # - 15001:5001
-
-  nginx:
-    container_name: nginx
-    image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
-    # TODO change to nginx from nginx-debug
-    command: nginx-debug -g 'daemon off;'
-    # stdin_open: true
-    # tty: true
-    environment:
-      DOCRIVER_OIDC_CLIENTID: ${DOCRIVER_OIDC_CLIENTID}
-      DOCRIVER_OIDC_SECRET: ${DOCRIVER_OIDC_SECRET}
-      DOCRIVER_OIDC_DISCOVERY_URL: ${DOCRIVER_OIDC_DISCOVERY_URL}
-      DOCRIVER_OIDC_REDIRECT_URL: ${DOCRIVER_OIDC_REDIRECT_URL}
-      DOCRIVER_OIDC_POST_LOGOUT_REDIRECT_URL: ${DOCRIVER_OIDC_POST_LOGOUT_REDIRECT_URL}
-    volumes:
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/default.conf:/etc/nginx/nginx.conf
-    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/htpasswd:/etc/nginx/htpasswd
-    - ${DOCRIVER_GW_HOME}/example-app/html:/usr/share/nginx/html:ro
-    - ${HOME}/.ssh/docriver:/etc/nginx/certs
-    ports:
-    - ${DOCRIVER_NGINX_PORT:-8443}:443
-
-    
-

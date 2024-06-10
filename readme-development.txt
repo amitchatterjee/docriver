@@ -15,7 +15,7 @@ python -m venv docriver-venv
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
 export DOCRIVER_GW_HOME=$HOME/git/docriver
-# Make changes to the env.sh file if needed
+# Make changes to the env.sh file as needed
 source $DOCRIVER_GW_HOME/env.sh
 source ~/docriver-venv/bin/activate
 # Exit the shell and create a new one before continuing further
@@ -37,7 +37,7 @@ sudo dnf install mysql
 
 # TODO - automate this. See https://github.com/minio/minio/blob/master/docs/docker/README.md
 # Setup storage buckets, etc. You need to do this whenever you delete the docker volume
-    1. Open minio console: http://localhost:9001
+    1. Open minio console: http://localhost:9001 (or https://gateway.quik-j.com:8443/minio/console - if you are using an ingress)
         login: minioadmin/minioadmin
     2. From console, create acess key - docriver-key/docriver-secret
     3. Create a bucket - docriver
@@ -92,7 +92,7 @@ pip install debugpy
 # Start infrastructure components
 #######################################################
 # Start infrastructure components needed for the document repo server
-docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-docriver.yml -p docriver up --detach
 
 # Run the gateway without Authorization
 python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
