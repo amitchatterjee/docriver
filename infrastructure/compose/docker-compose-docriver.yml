@@ -86,10 +86,9 @@ services:
     - ${HOME}/.ssh/docriver:/keystore
     - ${HOME}/storage/docriver/raw:/raw
     - ${HOME}/storage/docriver/untrusted:/untrusted
-    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--log", "INFO", "--debug"]
-    # The portmapping must be enabled only for debugging. Any requests should be proxied after authentication/authorization
-    # ports:
-    # - 15000:5000
+    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug"]
+    ports:
+    - 8443:5000
 volumes:
   mysqldata: null
   miniodata: null

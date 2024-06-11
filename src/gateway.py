@@ -62,6 +62,11 @@ def parse_args(args):
     parser.add_argument('--authAudience', default='docriver',
                         help='Target application for authorization')
 
+    parser.add_argument('--tlsKey', default=None,
+                        help="A file containing the site's TLS private key (PEM)")
+    parser.add_argument('--tlsCert', default=None,
+                        help="A file containing the site's TLS certificate (PEM)")
+
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
     parser.add_argument('--debug', action='store_true')
 
@@ -80,5 +85,11 @@ if __name__ == '__main__':
 
     app = init_app()
     init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
-    app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
+
+    if args.tlsKey:
+        logging.info("Starting server in TLS mode - cert: {}, key: {}".format(args.tlsCert, args.tlsKey))
+        app.run(host="0.0.0.0", ssl_context=(args.tlsCert, args.tlsKey), port=args.httpPort, debug=args.debug)
+    else:
+        logging.warn("Starting server in non-TLS mode")
+        app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
 

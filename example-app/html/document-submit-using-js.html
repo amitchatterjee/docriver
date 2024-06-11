@@ -4,7 +4,7 @@
     <head>
         <title>Document Submission - Javascript</title>
 
-        <script src="/js/uploader.js"></script>
+        <script src="https://docriver.quik-j.com:8443/js/uploader.js"></script>
         <script>
             function onResult(e) {
                 let submittedDocumentsElement = document.querySelector('#submittedDocuments');
@@ -75,12 +75,7 @@
                 let div = document.querySelector('#docriverUploaderJs');
                 let docUploader = document.createElement('docriver-uploader-basic');
 
-                // NOTE: to change to a different URL, if the document server host is different, use the docUploader.setAttribute("docServer", "XYZ")
-                // Example:
-                // let url = new URL(location.protocol + location.host);
-                // url.origin
-                // docUploader.setAttribute("docServer", "");
-
+                docUploader.setAttribute("docServer", "https://docriver.quik-j.com:8443");
                 docUploader.setAttribute("documentType", "medicalRecord");
                 docUploader.setAttribute("realm", "p123456");
                 docUploader.setAttribute("refResourceType", "claim");
