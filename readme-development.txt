@@ -91,7 +91,9 @@ pip install debugpy
 #######################################################
 # Start infrastructure components
 #######################################################
-# Start infrastructure components needed for the document repo server
+# Start components needed for the document repo server
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-lake.yml -p docriver up --detach
+
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
 # Run the gateway without Authorization
@@ -142,6 +144,11 @@ python -m pytest --cov -rPX -vv 'src/test/functional/test_rest_doc_transactions.
 
 # Run tests with remote debugging
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest -rPX -vv 
+
+#######################################################
+# Scaling
+#######################################################
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up -d --scale docriver-gateway=2 --no-recreate
 
 #######################################################
 # Virus Scan - ignore. My scribbles 
