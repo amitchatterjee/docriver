@@ -43,9 +43,13 @@ def parse_args():
     parser.add_argument('--resource', default='document',
                         help='resource to authorize')
     
+    parser.add_argument("--realm", help="Realm to submit document to")
+
+    parser.add_argument('--noverify', action='store_true')
+
     parser.add_argument("--log", help="log level (valid values are DEBUG, INFO, WARN, ERROR, NONE", default='WARN')
 
-    parser.add_argument("--realm", help="Realm to submit document to")
+    
     args = parser.parse_args()
     
     if not args.api:
@@ -107,6 +111,7 @@ if __name__ == '__main__':
 
     count = 0
     file_map = []
+    #requests.urllib3.disable_warnings()
     for photo in photos:
         url = photo.get(size_extra)
         if logging.getLogger().isEnabledFor(logging.DEBUG):
@@ -151,7 +156,7 @@ if __name__ == '__main__':
     response = None
     if args.rawFilesystemMount:
         headers =  {"Content-Type":"application/json", "Accept": "application/json"}
-        response = requests.post(url, json=manifest, headers=headers)
+        response = requests.post(url, json=manifest, headers=headers, verify=not args.noverify)
     else:
         # HTTP multipart form
         json_object = json.dumps(manifest, indent=4)
@@ -166,7 +171,7 @@ if __name__ == '__main__':
         # pretty_print(prepared)
         # s = requests.Session()
         # s.send(prepared)
-        response = requests.post(url, files=file_map, headers=headers)
+        response = requests.post(url, files=file_map, headers=headers, verify=not args.noverify)
 
     if response.status_code != 200:
         print("Status: {}, message: {}".format(response.status_code, response.text))

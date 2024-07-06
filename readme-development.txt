@@ -110,6 +110,9 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client gateway.py --rawFilesy
 #######################################################
 # Document ingestion using the docriver CLI tool. Use -h for options
 
+# To connect to a server with self-signed certificate, add the following additional parameters (change as needed) to the commands below:
+-u "https://localhost:5000/tx" -n
+
 # Inline document ingestion
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/src/test/resources/documents/test123456/sample.pdf
 

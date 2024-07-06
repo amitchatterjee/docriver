@@ -14,8 +14,9 @@ doc_type="General"
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
 prefix=
+insecure=
 
-OPTIONS="ht:f:x:r:i:p:u:y:k:w:e:l:"
+OPTIONS="ht:f:x:r:i:p:u:y:k:w:e:l:n"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -31,6 +32,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -w <AUTH_KEY_PASSWORD> the keystore file password
     -e <PREFIX> prefix to add to the document name
     -l <REALM> document realm. Default: $realm
+    -n don't verify the server's TLS certificate
 EOF
 )
 
@@ -72,6 +74,9 @@ while getopts $OPTIONS opt; do
     l)
       realm="$OPTARG"
       ;;
+    n)
+      insecure="--insecure"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -112,7 +117,7 @@ done
 # echo "${params[@]}"
 
 rm -f /tmp/response.json
-http_response=$(curl -s -o /tmp/response.json -H "Accept: application/json" "${params[@]}" -w "%{response_code}" "${server_url}/${realm}")
+http_response=$(curl $insecure -s -o /tmp/response.json -H "Accept: application/json" "${params[@]}" -w "%{response_code}" "${server_url}/${realm}")
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json

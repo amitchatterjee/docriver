@@ -6,13 +6,17 @@ services:
   docriver-token:
     image: docriver-base:0.0.1-SNAPSHOT
     user: 1000:1000
+    healthcheck:
+      interval: 60s
+      retries: 10
+      start_period: 10s
+      start_interval: 10s
+      test: curl --insecure https://localhost:5001/health || exit 1
+      timeout: 30s
     volumes:
     - ${DOCRIVER_GW_HOME}/src:/app
     - ${HOME}/.ssh/docriver:/keystore
-    command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--log", "INFO", "--debug"]
-    # The portmapping must be enabled only for debugging. Any requests should be proxied after authentication/authorization
-    # ports:
-    # - 15001:5001
+    command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug"]
   example-app-nginx:
     image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
     # TODO change to nginx from nginx-debug
@@ -21,7 +25,7 @@ services:
     # tty: true
     depends_on:
       docriver-token:
-        condition: service_started
+        condition: service_healthy
     environment:
       DOCRIVER_OIDC_CLIENTID: ${DOCRIVER_OIDC_CLIENTID}
       DOCRIVER_OIDC_SECRET: ${DOCRIVER_OIDC_SECRET}

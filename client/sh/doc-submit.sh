@@ -15,8 +15,9 @@ server_url=http://localhost:5000/tx
 replaces_doc_id=
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
+insecure=
 
-OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:k:w:e:"
+OPTIONS="hm:t:d:v:f:y:r:i:p:b:u:l:k:w:e:n"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -34,6 +35,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -k <AUTH_KEY_FILE> the keystore file that contains the key for signing the JWT auth token. Default: $server_url
     -w <AUTH_KEY_PASSWORD> the keystore file password. Default: $keystore_password
     -e <REALM> document realm. Default: $realm
+    -n don't verify the server's TLS certificate
 EOF
 )
 
@@ -80,6 +82,9 @@ while getopts $OPTIONS opt; do
       ;;
     e)
       realm="$OPTARG"
+      ;;
+    n)
+      insecure="--insecure"
       ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
@@ -154,7 +159,7 @@ cat << EOF > /tmp/manifest.json
 EOF
 
 rm -f /tmp/response.json
-http_response=$(curl -s -X POST -o /tmp/response.json -H 'Content-Type: application/json' -H "Accept: application/json" -w "%{response_code}" --data "@/tmp/manifest.json" "${server_url}/${realm}")
+http_response=$(curl $insecure -s -X POST -o /tmp/response.json -H 'Content-Type: application/json' -H "Accept: application/json" -w "%{response_code}" --data "@/tmp/manifest.json" "${server_url}/${realm}")
 if [ $http_response != "200" ]; then
     echo "Error: $http_response"
     cat /tmp/response.json

@@ -24,8 +24,9 @@ realm=p123456
 server_url=http://localhost:5000/document
 keystore_file=$HOME/.ssh/docriver/docriver.p12
 keystore_password=docriver
+insecure=
 
-OPTIONS="hd:u:k:w:r:o:"
+OPTIONS="hd:u:k:w:r:o:n"
 OPTIONS_DESCRIPTION=$(cat << EOF
 <Option(s)>....
     -h: prints this help message
@@ -35,6 +36,7 @@ OPTIONS_DESCRIPTION=$(cat << EOF
     -w <AUTH_KEY_PASSWORD> the keystore file password. Default: $keystore_password
     -r <REALM> document realm. Default: $realm
     -o <OUTPUT_PATH> full path name where the downloaded document is written to. Mandatory
+    -n don't verify the server's TLS certificate
 EOF
 )
 
@@ -58,6 +60,9 @@ while getopts $OPTIONS opt; do
     r)
       realm="$OPTARG"
       ;;
+    n)
+      insecure="--insecure"
+      ;;
     ?|h)
       echo "Usage: $(basename $0) $OPTIONS_DESCRIPTION"
       exit 0
@@ -79,7 +84,7 @@ fi
 token="Bearer $(python $DOCRIVER_GW_HOME/src/token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions txType:get-document 'document:.*')"
 
 rm -f $output_path
-curl --fail-with-body -s -X GET -o $output_path -H "Authorization:$token" "${server_url}/${realm}/$(rawurlencode $doc_id)"
+curl $insecure --fail-with-body -s -X GET -o $output_path -H "Authorization:$token" "${server_url}/${realm}/$(rawurlencode $doc_id)"
 if [ $? -ne 0 ]; then
   cat $output_path
   echo

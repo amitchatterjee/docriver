@@ -40,7 +40,12 @@ def parse_args(args):
     parser.add_argument('--oktaAud', default=None,
                         help='OKTA token audience')
     
-    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
+    parser.add_argument('--tlsKey', default=None,
+                        help="A file containing the site's TLS private key (PEM)")
+    parser.add_argument('--tlsCert', default=None,
+                        help="A file containing the site's TLS certificate (PEM)")
+
+    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARNING')
     parser.add_argument('--debug', action='store_true')
 
     args = parser.parse_args(args)
@@ -90,6 +95,10 @@ def authorize_request(assigned_permissions, requested_permissions):
         raise ValidationException("Assigned permissions not in JSON format")
 
 
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'system': 'UP'}), 200, {'Content-Type': 'application/json'}
+
 @app.route('/token', methods=['POST'])
 def get_token():
     payload = request.json
@@ -104,8 +113,8 @@ def get_token():
             splits = user_passwd.split(':')
             passwd = splits[1]
             subject = splits[0]
-            assigned_permissions = None
             # TODO Authenticate the user and get the permissions from the user profile
+            assigned_permissions = None
         elif splits[0].lower() == 'bearer':
             subject,assigned_permissions = extract_subject_and_permissions(splits[1])
         else:
@@ -149,7 +158,7 @@ def handle_validation_error(e):
 
 @app.errorhandler(AuthorizationException)
 def handle_validation_error(e):
-    logging.warn("Authorization exception: {}".format(str(e)))
+    logging.warning("Authorization exception: {}".format(str(e)))
     return jsonify({'error': 'Authorizaton failed'}), 403, {'Content-Type': 'application/json'}
 
 @app.errorhandler(Exception)
@@ -169,4 +178,9 @@ if __name__ == '__main__':
         okta_token_validator = OktaTokenValidator(args.oktaUrl, args.oktaAud)
 
     CORS(app, resources={r"/*": {"origins": "*"}})
-    app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
+    if args.tlsKey:
+        logging.info("Starting server in TLS mode - cert: {}, key: {}".format(args.tlsCert, args.tlsKey))
+        app.run(host="0.0.0.0", ssl_context=(args.tlsCert, args.tlsKey), port=args.httpPort, debug=args.debug)
+    else:
+        logging.warning("Starting server in non-TLS mode")
+        app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
