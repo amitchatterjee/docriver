@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-files=$(ls -1 $DOCRIVER_GW_HOME/infrastructure/doc/*.dot)
+files=$(ls -1 $DOCRIVER_GW_HOME/doc/*.dot)
 
 target=$DOCRIVER_GW_HOME/target/doc
 rm -rf $target
