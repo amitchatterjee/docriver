@@ -11,8 +11,8 @@ This repository contains source code for the ingestion subsystem. The function o
 - A virus scanner for validating that the received documents does not contain any harmful content
 - Filesystem volumes to store files during the ingestion process
 - The gateway application that processes document ingestion requests. The document ingestion process includes:
-    -- Authorization
-    -- Document valiation
-    -- Document and Metadata storage.
+    - Authorization
+    - Document valiation
+    - Document and Metadata storage.
 
 ![Component architecture!](doc/docriver-gateway.drawio.png "Docriver Gateway Components")
