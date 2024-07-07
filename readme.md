@@ -5,12 +5,12 @@ Docriver is an initiative to create a highly-scalable document ingestion and pro
 
 This repository contains source code for the ingestion subsystem. The function of the gateway is to receive documents from extrnal and internal entities, sanitize them and store them from downstream processing. The components include:
 
-- Endpoints for receiving documents from clients
+- An API Endpoints for receiving documents from clients
 - An object storage for storing documents
 - A database for storing document metadata
 - A virus scanner for validating that the received documents does not contain any harmful content
 - Filesystem volumes to store files during the ingestion process
-- The gateway application that processes document ingestion requests. The document ingestion process includes:
+- The document gateway application that processes document ingestion requests. The document ingestion process includes:
     - Authorization
     - Document valiation
     - Document and Metadata storage.

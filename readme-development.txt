@@ -14,10 +14,10 @@ python -m venv docriver-venv
 
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
-export DOCRIVER_GW_HOME=$HOME/git/docriver
+export DOCRIVER_GW_HOME=$HOME/git/docriver-gateway
 # Make changes to the env.sh file as needed
 source $DOCRIVER_GW_HOME/env.sh
-source ~/docriver-venv/bin/activate
+source $HOME/docriver-venv/bin/activate
 # Exit the shell and create a new one before continuing further
 
 # Install python dependencies
@@ -94,6 +94,10 @@ pip install debugpy
 # Start backend components needed for the document repo server
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backend.yml -p docriver up --detach
 
+#######################################################
+# Start gateway
+#######################################################
+# Start the docker gateway docker containers - Note that this is not needed if you want to run the gateway by executing the python commands shown below.
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
 # Run the gateway without Authorization
@@ -106,7 +110,7 @@ python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/do
 python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 #######################################################
-# Execute
+# Execute clients
 #######################################################
 # Document ingestion using the docriver CLI tool. Use -h for options
 

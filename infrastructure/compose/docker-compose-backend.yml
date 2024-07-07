@@ -31,8 +31,10 @@ services:
     command: server /data --console-address ":${DOCRIVER_MINIO_CONSOLE_PORT:-9001}"
     # --sftp="address=:8022"
     # --sftp="ssh-private-key=/home/miniouser/.ssh/id_rsa"
-    environment:
-      MINIO_BROWSER_REDIRECT_URL: ${DOCRIVER_MINIO_CONSOLE_URL}
+
+    # Uncomment below when you are running behind an ingress 
+    # environment:
+    #  MINIO_BROWSER_REDIRECT_URL: ${DOCRIVER_MINIO_CONSOLE_URL}
     volumes:
     - miniodata:/data
     ports:

@@ -29,7 +29,7 @@ export EXAMPLE_APP_NGINX_PORT=443
 # export DOCRIVER_AUTH_URL="https://dev-XXXXXX.okta.com/oauth2/default"
 # export DOCRIVER_OIDC_POST_LOGOUT_REDIRECT_URL="https://gateway.quik-j.com"
 # Proxy settings:
-# export DOCRIVER_MINIO_CONSOLE_URL="https://gateway.quik-j.com/minio/console"
+# export DOCRIVER_MINIO_CONSOLE_URL="https://docriver.quik-j.com/minio/console"
 
 export DOCRIVER_OIDC_CLIENTID=
 export DOCRIVER_OIDC_SECRET=
@@ -37,8 +37,5 @@ export DOCRIVER_OIDC_DISCOVERY_URL=
 export DOCRIVER_OIDC_REDIRECT_URL=
 export DOCRIVER_AUTH_URL=
 export DOCRIVER_MINIO_CONSOLE_URL=
-
-export AIRFLOW_WORK_DIR=$HOME/airflow
-export AIRFLOW_UID=$(id -u)
 
 export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/server
