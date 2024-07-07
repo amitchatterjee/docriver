@@ -38,6 +38,15 @@ services:
     ports:
     - ${DOCRIVER_MINIO_PORT:-9000}:9000
     - ${DOCRIVER_MINIO_CONSOLE_PORT:-9001}:9001
+  clamav:
+    container_name: clamav
+    image: clamav/clamav:${DOCRIVER_CLAMAV_VERSION:-stable_base}
+    volumes:
+    - clamavdata:/var/lib/clamav
+    - ${DOCRIVER_UNTRUSTED_ROOT:-/}:/scandir
+    ports:
+    - ${DOCRIVER_CLAMAV_PORT:-3310}:3310
 volumes:
   mysqldata: null
   miniodata: null
+  clamavdata: null

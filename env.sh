@@ -41,4 +41,4 @@ export DOCRIVER_MINIO_CONSOLE_URL=
 export AIRFLOW_WORK_DIR=$HOME/airflow
 export AIRFLOW_UID=$(id -u)
 
-export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/src
+export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/server

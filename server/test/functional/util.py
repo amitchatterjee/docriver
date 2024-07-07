@@ -9,17 +9,17 @@ from model.s3_url import parse_url
 TEST_REALM = 'test123456'
 
 def raw_dir():
-    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'src/test/resources/documents'))
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/documents'))
 
 def untrusted_dir():
     return os.getenv('DOCRIVER_UNTRUSTED_ROOT')
 
 def auth_keystore_path():
-    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'src/test/resources/auth/truststore.p12'))
+    return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server/test/resources/auth/truststore.p12'))
 
 def issuer_keystore_path(issuer):
     return os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 
-        "src/test/resources/auth/{}.p12".format(issuer)))
+        "server/test/resources/auth/{}.p12".format(issuer)))
 
 def delete_obj_recursively(minio, bucketname, folder):
     objs = minio.list_objects(bucketname, prefix=folder, recursive=True)

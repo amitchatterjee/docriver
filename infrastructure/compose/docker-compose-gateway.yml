@@ -3,29 +3,21 @@ networks:
     name: dev
     external: true
 services:
-  clamav:
-    container_name: clamav
-    image: clamav/clamav:${DOCRIVER_CLAMAV_VERSION:-stable_base}
-    volumes:
-    - clamavdata:/var/lib/clamav
-    - ${DOCRIVER_UNTRUSTED_ROOT:-/}:/scandir
-    ports:
-    - ${DOCRIVER_CLAMAV_PORT:-3310}:3310
   docriver-gateway:
     image: docriver-base:0.0.1-SNAPSHOT
-    depends_on:
+    #depends_on:
       #mysql:
       #  condition: service_healthy
         # restart: true
       #minio:
       #  condition: service_started
         # restart: true
-      clamav:
-        condition: service_healthy
+      #clamav:
+      #  condition: service_healthy
         # restart: true
     user: 1000:1000
     volumes:
-    - ${DOCRIVER_GW_HOME}/src:/app
+    - ${DOCRIVER_GW_HOME}/server:/app
     - ${HOME}/.ssh/docriver:/keystore
     - ${HOME}/storage/docriver/raw:/raw
     - ${HOME}/storage/docriver/untrusted:/untrusted
@@ -49,5 +41,3 @@ services:
     - ${HOME}/.ssh/docriver:/etc/nginx/certs
     ports:
     - ${DOCRIVER_NGINX_PORT:-8443}:443
-volumes:
-  clamavdata: null

@@ -91,19 +91,19 @@ pip install debugpy
 #######################################################
 # Start infrastructure components
 #######################################################
-# Start components needed for the document repo server
-docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-lake.yml -p docriver up --detach
+# Start backend components needed for the document repo server
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backend.yml -p docriver up --detach
 
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
 # Run the gateway without Authorization
-python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 # Run the gateway with Authorization turned on
-python $DOCRIVER_GW_HOME/src/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
+python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
-python -m debugpy --listen 0.0.0.0:5678 --wait-for-client gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 #######################################################
 # Execute
@@ -114,16 +114,16 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client gateway.py --rawFilesy
 -u "https://localhost:5000/tx" -n
 
 # Inline document ingestion
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/src/test/resources/documents/test123456/sample.pdf
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
 # Ingestion from raw file mount
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/src/test/resources/documents/test123456/sample.pdf
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
 # Multipart form file ingestion
 $DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/"
 
 # Virus scan failure
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/src/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
 
 # Download a document - change the document number and output path name
 $DOCRIVER_GW_HOME/client/sh/doc-get.sh -d 8ed01cbe-f508-11ee-b3a5-2016b95ee0b1 -o /tmp/download.pdf
