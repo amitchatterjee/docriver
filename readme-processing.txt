@@ -1,8 +1,13 @@
 #######################
-# One-time setup
+# Operations
 #######################
-mkdir -p $HOME/airflow
+pip install apache-airflow
 
-# Add to $HOME/.bashrc
-# Change this to the UID of the user who created the directory above
-export AIRFLOW_UID=1000
+#######################
+# Operations
+#######################
+# Start airflow
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-airflow.yml -p docriver up -d
+
+# Run command from CLI
+docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-airflow.yml -p docriver run --rm  airflow-cli airflow dags  backfill hello-world --start-date 2015-06-01  --end-date 2015-06-07
