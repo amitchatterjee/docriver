@@ -38,4 +38,4 @@ export DOCRIVER_OIDC_REDIRECT_URL=
 export DOCRIVER_AUTH_URL=
 export DOCRIVER_MINIO_CONSOLE_URL=
 
-export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/server
+export PATH=$PATH:$DOCRIVER_GW_HOME/infrastructure/sh:$DOCRIVER_GW_HOME/client/sh:$DOCRIVER_GW_HOME/server:$DOCRIVER_GW_HOME/client/python

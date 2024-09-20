@@ -2,7 +2,7 @@ import pytest
 import sys
 import os
 
-from test.functional.fixture import cleanup, client, connection_pool, minio, scanner
+from test.functional.fixture import cleanup, client, connection_pool, minio, scanner, tracer
 from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc, delete_docs, TEST_REALM
 
 def test_health(client):

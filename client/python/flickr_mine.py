@@ -3,11 +3,11 @@
 import argparse
 import flickrapi
 import urllib
+import sys
 import os
 import shutil
 import logging
 import requests
-import sys
 import json
 from PIL import Image
 from datetime import datetime

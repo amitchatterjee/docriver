@@ -12,3 +12,5 @@ pillow
 requests
 cryptography
 okta-jwt-verifier
+opentelemetry-api
+opentelemetry-sdk

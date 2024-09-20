@@ -4,7 +4,7 @@ import os
 from auth.keystore import get_entries
 from auth.token import issue
 
-from test.functional.fixture import cleanup, client, connection_pool, minio, scanner, auth_keystore, client_with_security
+from test.functional.fixture import cleanup, client, connection_pool, minio, scanner, tracer, auth_keystore, client_with_security
 from test.functional.util import submit_inline_doc, TEST_REALM, issuer_keystore_path, delete_docs
 
 def test_notoken(cleanup, client_with_security):

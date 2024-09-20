@@ -114,7 +114,7 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/serv
 #######################################################
 # Document ingestion using the docriver CLI tool. Use -h for options
 
-# To connect to a server with self-signed certificate, add the following additional parameters (change as needed) to the commands below:
+# To connect to a server with self-signed certificate, append the following additional parameters (change as needed) to the commands below:
 -u "https://localhost:5000/tx" -n
 
 # Inline document ingestion

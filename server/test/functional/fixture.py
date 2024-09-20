@@ -2,7 +2,7 @@ import os
 import pytest
 import logging
 from controller.http import init_app, init_params
-from gateway import init_db, init_obj_store, init_virus_scanner, init_authorization
+from gateway import init_db, init_obj_store, init_virus_scanner, init_authorization, init_tracer
 from test.functional.util import delete_obj_recursively, TEST_REALM, raw_dir, untrusted_dir, auth_keystore_path
 
 @pytest.fixture(scope="session", autouse=True)
@@ -27,14 +27,18 @@ def scanner():
     return init_virus_scanner('127.0.0.1', 3310)
 
 @pytest.fixture(scope="session", autouse=True)
-def client(connection_pool, minio, scanner):
-    app = core_client(connection_pool, minio, scanner, None, None, None, None, None, None)
+def tracer():
+    return init_tracer()
+
+@pytest.fixture(scope="session", autouse=True)
+def client(connection_pool, minio, scanner, tracer):
+    app = core_client(connection_pool, minio, scanner, tracer, None, None, None, None, None, None)
     with app.test_client() as client:
         yield client
 
 @pytest.fixture(scope="session", autouse=True)
-def client_with_security(connection_pool, minio, scanner, auth_keystore):
-    app = core_client(connection_pool, minio, scanner, *auth_keystore, 'docriver')
+def client_with_security(connection_pool, minio, scanner, tracer, auth_keystore):
+    app = core_client(connection_pool, minio, scanner, tracer, *auth_keystore, 'docriver')
     with app.test_client() as client:
         yield client
 
@@ -54,9 +58,9 @@ def cleanup(connection_pool, minio):
         if connection.is_connected():
             connection.close()
 
-def core_client(connection_pool, minio, scanner, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience):
+def core_client(connection_pool, minio, scanner, tracer, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience):
     logging.basicConfig(level='INFO')
     app = init_app()
     app.config['TESTING'] = True
-    init_params(connection_pool, minio, scanner, 'docriver', untrusted_dir(), raw_dir(), '/scandir', auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience)
+    init_params(connection_pool, minio, scanner, tracer, 'docriver', untrusted_dir(), raw_dir(), '/scandir', auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, auth_audience)
     return app

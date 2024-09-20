@@ -10,3 +10,25 @@ def create_tx_event(cursor, tx_id):
                   VALUES(%s, %s, %s) 
                   """), 
                   ('INGESTION', 'I', tx_id))
+    
+def get_events(cursor, realm, start_time, end_time):
+    cursor.execute("""SELECT 
+        e.EVENT_TIME, d.DOCUMENT, e.STATUS, e.REF_TX_ID, e.REF_DOC_ID, v.LOCATION_URL, v.TYPE, v.MIME_TYPE
+        FROM 
+            DOC_EVENT e
+            JOIN DOC d ON e.DOC_ID = d.ID
+            JOIN DOC_VERSION v ON v.DOC_ID = d.ID
+        WHERE 
+            e.EVENT_TIME BETWEEN %s AND %s
+            AND d.REALM = %s
+        ORDER BY 
+            e.EVENT_TIME
+        """, (start_time.strftime('%Y-%m-%d %H:%M:%S'), end_time.strftime('%Y-%m-%d %H:%M:%S'), realm))
+    events = []
+    rows = cursor.fetchall()
+    for row in rows:
+        events.append((row[0], row[1], row[2], row[3], row[4], row[5], row[6], row[7]))
+    return events
+    # format_strings = ','.join(['%s'] * len(list_of_ids))
+    # cursor.execute("DELETE FROM foo.bar WHERE baz IN (%s)" % format_strings,
+    #            tuple(list_of_ids))

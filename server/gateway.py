@@ -7,6 +7,11 @@ import logging
 import clamd
 import sys
 
+from opentelemetry import trace
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+
+
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
 
@@ -31,6 +36,18 @@ def init_authorization(keystore, password):
          logging.getLogger('Authorization').warning("Authorization disabled!!!")
          return None, None, None, None, None
     return get_entries(keystore, password)
+
+def init_tracer():
+    provider = TracerProvider()
+    processor = BatchSpanProcessor(ConsoleSpanExporter())
+    provider.add_span_processor(processor)
+
+    # Sets the global default tracer provider
+    trace.set_tracer_provider(provider)
+
+    # Creates a tracer from the global tracer provider
+    tracer = trace.get_tracer("docriver")
+    return tracer
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -84,7 +101,10 @@ if __name__ == '__main__':
     auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys = init_authorization(args.authKeystore, args.authPassword)
 
     app = init_app()
-    init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
+
+    tracer = init_tracer()
+
+    init_params(connection_pool, minio, scanner, tracer, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
 
     if args.tlsKey:
         logging.info("Starting server in TLS mode - cert: {}, key: {}".format(args.tlsCert, args.tlsKey))

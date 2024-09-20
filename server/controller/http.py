@@ -3,10 +3,12 @@ from flask_cors import CORS
 from flask_accept import accept
 import logging
 import os
+import time
 
 from exceptions import ValidationException, AuthorizationException, DocumentException
 from model.tx_submit_service import submit_docs_tx
 from model.tx_delete_service import delete_docs_tx
+from model.tx_get_service import get_events
 from actuator.health import get_health
 from controller.html_utils import to_html
 from model.document_service import stream_document
@@ -30,6 +32,15 @@ def process_delete_tx(realm):
     token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
     result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
     return jsonify(result), {'Content-Type': 'application/json'}
+
+@gw.route('/tx/<realm>', methods=['GET'])
+@accept('application/json')
+def process_get_tx_events(realm):
+    with tracer.start_as_current_span("get_tx_events") as span:
+        end = int(request.args.get('endTime', time.time()))
+        start = int(request.args.get('startTime')) if 'startTime' in request.args else end - 24*60*60
+        token = request.args.get('authorization') if 'authorization' in request.args else request.headers.get('Authorization')
+        return get_events(realm, start, end, connection_pool, token, auth_public_keys, auth_audience)
 
 @gw.route('/document/<realm>/<path:document>', methods=['GET'])
 def process_document_get(realm, document):
@@ -80,7 +91,7 @@ def init_app():
     app.register_blueprint(gw)
     return app
 
-def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount, _auth_private_key, _auth_public_key, _auth_signer_cert, _auth_signer_cn, _auth_public_keys, _auth_audience):
+def init_params(_connection_pool, _minio, _scanner, _tracer, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount, _auth_private_key, _auth_public_key, _auth_signer_cert, _auth_signer_cn, _auth_public_keys, _auth_audience):
     # TODO this is getting ugly fast. Fixit
     global minio
     global connection_pool
@@ -95,6 +106,7 @@ def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount
     global auth_signer_cn
     global auth_public_keys
     global auth_audience
+    global tracer
 
     minio = _minio
     connection_pool = _connection_pool
@@ -109,3 +121,4 @@ def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount
     auth_signer_cn = _auth_signer_cn
     auth_public_keys = _auth_public_keys
     auth_audience = _auth_audience
+    tracer = _tracer
