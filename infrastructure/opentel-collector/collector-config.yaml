@@ -1,7 +1,7 @@
 extensions:
   zpages:
-    endpoint: :55679
-  # headers_setter:
+    endpoint: 0.0.0.0:55679
+
 receivers:
   otlp:
     protocols:
@@ -27,4 +27,4 @@ service:
         logs:
           receivers: [otlp]
           exporters: [debug]
-    
+    extensions: [zpages]    
