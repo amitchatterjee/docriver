@@ -38,14 +38,19 @@ def init_authorization(keystore, password):
          return None, None, None, None, None
     return get_entries(keystore, password)
 
-def init_tracer(exp = None, endpoint = None, auth_token_key='Auth', auth_token_val=""):
+def init_tracer(exp = None, endpoint = None, auth_token_key=None, auth_token_val=None):
     # TODO remove hardcoded information below
-    resource = Resource.create({
+    resources = {
         "service.name": "docriver-gateway",
         "service.version": "1.0.0",
-        "deployment.environment": "development",
-        auth_token_key: auth_token_val
-    })
+        "deployment.environment": "development"
+    }
+    
+    if auth_token_key:
+        resources[auth_token_key] = auth_token_val
+        
+    resource = Resource.create(resources)    
+    
     provider = TracerProvider(resource=resource)
     if exp == 'console':
         processor = BatchSpanProcessor(ConsoleSpanExporter())

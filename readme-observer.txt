@@ -1,7 +1,7 @@
 # Bring up the observer docker processes
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-observer.yml -p docriver up
 
-# Override the following variable. Use "oltp" as the value
+# Override the following variable. Use "oltp" as the value. Or add to ~/.bashrc along with the rest of the opentel params
 export DOCRIVER_OTEL_EXP=otlp
 
 # Start the gateway using docker compose

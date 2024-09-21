@@ -1,17 +1,21 @@
+extensions:
+  zpages:
+    endpoint: :55679
+  # headers_setter:
 receivers:
   otlp:
     protocols:
       grpc:
-        endpoint: 0.0.0.0:${env:DOCRIVER_OPENTEL_GRPC_PORT}
+        endpoint: 0.0.0.0:4317
       http:
-        endpoint: 0.0.0.0:${env:DOCRIVER_OPENTEL_HTTP_PORT}
+        endpoint: 0.0.0.0:4318
 exporters:
   debug:
     verbosity: normal
   otlp:
     endpoint: ${env:DOCRIVER_OPENTEL_EXPORT_ENDPOINT}
     headers:
-      Authorization: ${env:DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH} 
+      Authorization: ${env:DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL} 
 service:
     pipelines:
         traces:
