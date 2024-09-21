@@ -10,7 +10,8 @@ import sys
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
-
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.resources import Resource
 
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
@@ -37,16 +38,30 @@ def init_authorization(keystore, password):
          return None, None, None, None, None
     return get_entries(keystore, password)
 
-def init_tracer():
-    provider = TracerProvider()
-    processor = BatchSpanProcessor(ConsoleSpanExporter())
-    provider.add_span_processor(processor)
+def init_tracer(exp = None, endpoint = None, auth_token_key='Auth', auth_token_val=""):
+    # TODO remove hardcoded information below
+    resource = Resource.create({
+        "service.name": "docriver-gateway",
+        "service.version": "1.0.0",
+        "deployment.environment": "development",
+        auth_token_key: auth_token_val
+    })
+    provider = TracerProvider(resource=resource)
+    if exp == 'console':
+        processor = BatchSpanProcessor(ConsoleSpanExporter())
+        provider.add_span_processor(processor)
+    elif exp == 'otlp':
+        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+        provider.add_span_processor(processor)
+    else:
+        logging.getLogger('Tracer').warning("Tracer disabled!!!")
 
     # Sets the global default tracer provider
-    trace.set_tracer_provider(provider)
+    trace.set_tracer_provider(tracer_provider=provider)
 
     # Creates a tracer from the global tracer provider
-    tracer = trace.get_tracer("docriver")
+    # TODO make the name cofigurable
+    tracer = trace.get_tracer("docriver-gateway")
     return tracer
 
 def parse_args(args):
@@ -87,6 +102,12 @@ def parse_args(args):
     parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
     parser.add_argument('--debug', action='store_true')
 
+    parser.add_argument("--otelExp", help="Opentelemetry exporter. Valid values are: none, console and otlp", default=None)
+    parser.add_argument("--otelExpEndpoint", help="Opentelemetry exporter endpoint. Only required for OTLP exporter", default=None)
+
+    parser.add_argument("--otelAuthTokenKey", help="Opentelemetry auth token key name", default='auth')
+    parser.add_argument("--otelAuthTokenVal", help="Opentelemetry auth token value", default='')
+
     args = parser.parse_args(args)
     # TODO add validation
 
@@ -100,9 +121,9 @@ if __name__ == '__main__':
     scanner = init_virus_scanner(args.scanHost, args.scanPort)
     auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys = init_authorization(args.authKeystore, args.authPassword)
 
-    app = init_app()
+    tracer = init_tracer(args.otelExp, args.otelExpEndpoint, args.otelAuthTokenKey, args.otelAuthTokenVal)
 
-    tracer = init_tracer()
+    app = init_app()
 
     init_params(connection_pool, minio, scanner, tracer, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
 
@@ -110,6 +131,6 @@ if __name__ == '__main__':
         logging.info("Starting server in TLS mode - cert: {}, key: {}".format(args.tlsCert, args.tlsKey))
         app.run(host="0.0.0.0", ssl_context=(args.tlsCert, args.tlsKey), port=args.httpPort, debug=args.debug)
     else:
-        logging.warn("Starting server in non-TLS mode")
+        logging.warning("Starting server in non-TLS mode")
         app.run(host="0.0.0.0", port=args.httpPort, debug=args.debug)
 

@@ -1,0 +1,26 @@
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:${env:DOCRIVER_OPENTEL_GRPC_PORT}
+      http:
+        endpoint: 0.0.0.0:${env:DOCRIVER_OPENTEL_HTTP_PORT}
+exporters:
+  debug:
+    verbosity: normal
+  otlp:
+    endpoint: ${env:DOCRIVER_OPENTEL_EXPORT_ENDPOINT}
+    headers:
+      Authorization: ${env:DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH} 
+service:
+    pipelines:
+        traces:
+          receivers: [otlp]
+          exporters: [otlp]
+        metrics:
+          receivers: [otlp]
+          exporters: [debug]
+        logs:
+          receivers: [otlp]
+          exporters: [debug]
+    

@@ -9,6 +9,9 @@ def get_events(realm, start, end, connection_pool, token, auth_public_keys, auth
     span.set_attributes({'realm': realm, 
                         'startTime': start, 
                         'endTime': end})
+    
+    # TODO authorize the request
+    
     connection = connection_pool.get_connection()
     cursor = None
     try:

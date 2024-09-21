@@ -20,6 +20,15 @@ export DOCRIVER_NGINX_PORT=8443
 
 export EXAMPLE_APP_NGINX_PORT=443
 
+export DOCRIVER_OPENTEL_GRPC_PORT=4317
+export DOCRIVER_OPENTEL_HTTP_PORT=4318
+export DOCRIVER_OPENTEL_UX_PORT=55679
+
+# Change the following environment variable to "otlp" if you want to use the opentelemetry collector. You can also set the value to "console" to view the traces on console. Note that when using "otlp", the observer docker processes must be started
+export DOCRIVER_OTEL_EXP=none
+export DOCRIVER_OTEL_EXP_ENDPOINT=http://opentel-collector:${DOCRIVER_OPENTEL_HTTP_PORT}/v1/traces
+export DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH=
+
 # Make changes as needed. Many of these settings will need to match with the OIDC and proxy settings. Example - 
 # OIDC/OAUTH2 settings:
 # export DOCRIVER_OIDC_CLIENTID="XXXXXX"

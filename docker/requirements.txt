@@ -14,3 +14,4 @@ cryptography
 okta-jwt-verifier
 opentelemetry-api
 opentelemetry-sdk
+opentelemetry-exporter-otlp-proto-http

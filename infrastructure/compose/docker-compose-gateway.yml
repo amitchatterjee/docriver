@@ -21,7 +21,7 @@ services:
     - ${HOME}/.ssh/docriver:/keystore
     - ${HOME}/storage/docriver/raw:/raw
     - ${HOME}/storage/docriver/untrusted:/untrusted
-    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug"]
+    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--otelExp", "${DOCRIVER_OTEL_EXP:-none}", "--otelExpEndpoint", "${DOCRIVER_OTEL_EXP_ENDPOINT:-none}", "--otelAuthTokenKey", "aspecto.token", "--otelAuthTokenVal", "${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH}"]
     healthcheck:
       interval: 60s
       retries: 10
