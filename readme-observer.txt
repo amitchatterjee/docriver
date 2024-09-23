@@ -12,6 +12,11 @@ bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H
 # To trigger the tracing:
 curl --insecure --header "Accept: application/json"  https://localhost:8443/tx/p123456
 
+# Or:
+$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf -u "https://localhost:8443/tx" -n
 
-# View if you see the traces on opentel-collector console:
+# Or:
+bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/" -u "https://localhost:8443/tx" -n
+
+# View if you see the traces on opentel-collector console - for debugging:
 http://localhost:55679/debug/tracez

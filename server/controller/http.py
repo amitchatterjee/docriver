@@ -17,13 +17,14 @@ gw = Blueprint('docriver-http', __name__)
 
 @gw.route('/tx/<realm>', methods=['POST'])
 def process_submit_tx(realm):
-    result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, realm, request)
-    if request.headers.get('Accept', default='text/html') == 'application/json':
-        return jsonify(result), {'Content-Type': 'application/json'}
-    else:
-        # TODO use a jinja template
-        # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
-        return to_html(result, indent=1), 200, {'Content-Type': 'text/html'}
+    with tracer.start_as_current_span("submit_tx") as span:
+        result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, realm, request)
+        if request.headers.get('Accept', default='text/html') == 'application/json':
+            return jsonify(result), {'Content-Type': 'application/json'}
+        else:
+            # TODO use a jinja template
+            # return '<pre>{}</pre>'.format(pprint.pformat(result)), 'text/html'
+            return to_html(result, indent=1), 200, {'Content-Type': 'text/html'}
 
 @gw.route('/tx/<realm>', methods=['DELETE'])
 @accept('application/json')

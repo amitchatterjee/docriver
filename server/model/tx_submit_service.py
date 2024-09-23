@@ -9,6 +9,8 @@ import shutil
 import pathlib
 import fleep
 
+from opentelemetry import trace
+from opentelemetry.trace import Status, StatusCode
 from minio.commonconfig import Tags
 import json
 from subprocess import PIPE, STDOUT
@@ -266,6 +268,9 @@ def format_result(start, payload, end):
     return result
 
 def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, public_keys, audience, realm, request):
+    span = trace.get_current_span()
+    span.set_attribute('realm', realm)
+    
     start = current_time_ms() 
     connection = connection_pool.get_connection()
     stage_dir = stage_dirname(untrusted_fs_mount)
@@ -285,6 +290,8 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         authorize_submit(public_keys, token, audience, payload)
 
         logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['dr:realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
+        
+        span.set_attributes({'principal': payload['dr:principal'], 'tx': payload['tx'], 'contentType': request.headers.get('Accept', default='text/html')})
 
         os.makedirs(stage_dir)
 
@@ -304,9 +311,13 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         result = format_result(start, payload, end)
         
         connection.commit()
+        span.set_attributes({'numDocuments': len(payload['documents']), 'txKey': payload['dr:txId']})
+        span.set_status(Status(StatusCode.OK))
         return result
     except Exception as e:
         connection.rollback()
+        span.set_status(Status(StatusCode.ERROR))
+        span.record_exception(e)
         raise e
     finally:
         if os.path.isdir(stage_dir):

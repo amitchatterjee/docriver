@@ -12,6 +12,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
 
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
@@ -129,6 +130,8 @@ if __name__ == '__main__':
     tracer = init_tracer(args.otelExp, args.otelExpEndpoint, args.otelAuthTokenKey, args.otelAuthTokenVal)
 
     app = init_app()
+    
+    FlaskInstrumentor().instrument_app(app, excluded_urls="health")
 
     init_params(connection_pool, minio, scanner, tracer, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)
 
