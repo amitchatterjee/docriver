@@ -13,6 +13,7 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExport
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
@@ -68,6 +69,9 @@ def init_tracer(exp = None, endpoint = None, auth_token_key=None, auth_token_val
     # Creates a tracer from the global tracer provider
     # TODO make the name cofigurable
     tracer = trace.get_tracer("docriver-gateway")
+    
+    # Instrument MySQL conections
+    MySQLInstrumentor().instrument()
     return tracer
 
 def parse_args(args):

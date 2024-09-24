@@ -1,4 +1,3 @@
-import time
 import base64
 import io
 import os
@@ -124,39 +123,47 @@ def put_object(minio, bucket, doc_key, stream, mime_type, tags, properties):
         content_type=mime_type, tags=doc_tags, metadata=properties)
     
 def stage_documents_from_manifest(principal, stage_dir, raw_file_mount, payload):
-    filename_mime_dict = {}
-    documents = payload['documents']
-    # Assemble all the document in untrusted area for security and other validations
-    for document in documents:
-        stage_filename = None
-        if 'content' in document:
-            if 'inline' in document['content']:
-                content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
-                ext = mimetypes.guess_extension(document['content']['mimeType'], True)
-                if not ext or ext == '.mp4':
-                    # if we were unable to determine an extension based on the mimetype or if it is a mp4 type, look deeper into the content to match a magic signature
-                    info = fleep.get(content[0:128])
-                    ext = '.' + info.extension[0]
-                stage_filename = "{}/{}-{}{}".format(stage_dir,
-                    # the following is needed to remove any "directories" if the document id is specified in a path form                 
-                    document['document'][document['document'].rfind('/')+1:], 
-                    document['dr:version'], ext)
-                mode = "w" if document['content']['mimeType'].startswith('text') else "wb"
-                with open(stage_filename, mode) as stream:
-                    stream.write(content)
-            elif 'path' in document['content']:
-                src_filename = "{}/{}/{}".format(raw_file_mount, payload['dr:realm'], document['content']['path'])
-                stage_filename = "{}/{}".format(stage_dir, os.path.split(src_filename)[1])
-                shutil.copyfile(src_filename, stage_filename)
-            # else: If the inline/path attributes are not specified, then the document refers to an existing document
-        # else: If the content attribute is not specified, then the document refers to an existing document
+    tracer = trace.get_tracer('docriver-gateway')
+    with tracer.start_as_current_span("stage_documents_from_manifest") as span:
+        try:
+            filename_mime_dict = {}
+            documents = payload['documents']
+            # Assemble all the document in untrusted area for security and other validations
+            for document in documents:
+                stage_filename = None
+                if 'content' in document:
+                    if 'inline' in document['content']:
+                        content = decode(document['content']['encoding'] if 'encoding' in document['content'] else None, document['content']['inline'])
+                        ext = mimetypes.guess_extension(document['content']['mimeType'], True)
+                        if not ext or ext == '.mp4':
+                            # if we were unable to determine an extension based on the mimetype or if it is a mp4 type, look deeper into the content to match a magic signature
+                            info = fleep.get(content[0:128])
+                            ext = '.' + info.extension[0]
+                        stage_filename = "{}/{}-{}{}".format(stage_dir,
+                            # the following is needed to remove any "directories" if the document id is specified in a path form                 
+                            document['document'][document['document'].rfind('/')+1:], 
+                            document['dr:version'], ext)
+                        mode = "w" if document['content']['mimeType'].startswith('text') else "wb"
+                        with open(stage_filename, mode) as stream:
+                            stream.write(content)
+                    elif 'path' in document['content']:
+                        src_filename = "{}/{}/{}".format(raw_file_mount, payload['dr:realm'], document['content']['path'])
+                        stage_filename = "{}/{}".format(stage_dir, os.path.split(src_filename)[1])
+                        shutil.copyfile(src_filename, stage_filename)
+                    # else: If the inline/path attributes are not specified, then the document refers to an existing document
+                # else: If the content attribute is not specified, then the document refers to an existing document
 
-        if stage_filename:
-            document['dr:stageFilename'] = stage_filename
-            if 'mimeType' not in document['content']:
-                document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
-            filename_mime_dict[stage_filename] = document['content']['mimeType']
-    return filename_mime_dict
+                if stage_filename:
+                    document['dr:stageFilename'] = stage_filename
+                    if 'mimeType' not in document['content']:
+                        document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
+                    filename_mime_dict[stage_filename] = document['content']['mimeType']
+                    span.set_status(StatusCode.OK)
+            return filename_mime_dict
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR))
+            span.record_exception(e)
+            raise e
 
 def find_matching_document(documents, filename):
     for document in documents:
@@ -166,94 +173,119 @@ def find_matching_document(documents, filename):
     return None
 
 def stage_documents_from_form(principal, request, stage_dir, payload):
-    filename_mime_dict = {}
-    for field in request.files.keys():
-        if not field.startswith('file'):
-            continue
-        for uploaded_file in request.files.getlist(field):
-            if not uploaded_file.filename or uploaded_file.filename == 'manifest.json':
-                continue
-            staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
-            uploaded_file.save(staged_filename)
-            document = find_matching_document(payload['documents'], uploaded_file.filename)
-            if document:
-                document['dr:stageFilename'] = staged_filename
-                if 'mimeType' not in document['content']:
-                    document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
-                filename_mime_dict[staged_filename] = document['content']['mimeType']
-    return filename_mime_dict
+    tracer = trace.get_tracer('docriver-gateway')
+    with tracer.start_as_current_span("stage_documents_from_form") as span:
+        try:
+            filename_mime_dict = {}
+            for field in request.files.keys():
+                if not field.startswith('file'):
+                    continue
+                for uploaded_file in request.files.getlist(field):
+                    if not uploaded_file.filename or uploaded_file.filename == 'manifest.json':
+                        continue
+                    staged_filename = "{}/{}".format(stage_dir, uploaded_file.filename)
+                    uploaded_file.save(staged_filename)
+                    document = find_matching_document(payload['documents'], uploaded_file.filename)
+                    if document:
+                        document['dr:stageFilename'] = staged_filename
+                        if 'mimeType' not in document['content']:
+                            document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
+                        filename_mime_dict[staged_filename] = document['content']['mimeType']
+            span.set_status(StatusCode.OK)
+            return filename_mime_dict
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR))
+            span.record_exception(e)
+            raise e
 
 def format_doc_key(payload, document):
     ext = pathlib.Path(document['dr:stageFilename']).suffix
     return "{}/{}-{}{}".format(payload['dr:realm'], document['document'], document['dr:version'], ext)
 
 def write_to_obj_store(principal, minio, bucket, payload):
-    documents = payload['documents']
-    for document in documents: 
-        if 'dr:stageFilename' in document:
-            # TODO add more dr:tags to store document, etc.
-            # TODO the code below is not transactional. That means if a file put fails, the minio storage will be in a messed up state. We can perform cleanups since we have the references in the metadata store. A better way to do this is to tar the files and have minio extract it - https://blog.min.io/minio-optimizes-small-objects/
-            with io.FileIO(document['dr:stageFilename']) as stream:
-                    put_object(minio, bucket, format_doc_key(payload, document), stream, 
-                        document['content']['mimeType'],
-                        document['tags'] if 'tags' in document else None,
-                        document['properties'] if 'properties' in document else None)
+    tracer = trace.get_tracer('docriver-gateway')
+    with tracer.start_as_current_span("write_obj_to_store") as span:
+        try:
+            documents = payload['documents']
+            for document in documents: 
+                if 'dr:stageFilename' in document:
+                    # TODO add more dr:tags to store document, etc.
+                    # TODO the code below is not transactional. That means if a file put fails, the minio storage will be in a messed up state. We can perform cleanups since we have the references in the metadata store. A better way to do this is to tar the files and have minio extract it - https://blog.min.io/minio-optimizes-small-objects/
+                    with io.FileIO(document['dr:stageFilename']) as stream:
+                            put_object(minio, bucket, format_doc_key(payload, document), stream, 
+                                document['content']['mimeType'],
+                                document['tags'] if 'tags' in document else None,
+                                document['properties'] if 'properties' in document else None)
+            span.set_status(Status(StatusCode.OK))
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR))
+            span.record_exception(e)
+            raise e
 
 def write_metadata(principal, connection, bucket, payload):
-    cursor = connection.cursor()
-    try:
-        tx_id = create_tx(payload, 'submit', cursor)
-        payload['dr:txId'] = tx_id
-        create_tx_event(cursor, tx_id)
-        
-        documents = payload['documents']
-        for document in documents:
-            doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['document'])            
+    tracer = trace.get_tracer('docriver-gateway')
+    with tracer.start_as_current_span("write_metadata") as span:
+        try:
+            cursor = connection.cursor()
+            try:
+                tx_id = create_tx(payload, 'submit', cursor)
+                payload['dr:txId'] = tx_id
+                create_tx_event(cursor, tx_id)
+                
+                documents = payload['documents']
+                for document in documents:
+                    doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['document'])            
 
-            if 'dr:stageFilename' in document:
-                new_version = 'replaces' in document and document['replaces'] == document['document']
+                    if 'dr:stageFilename' in document:
+                        new_version = 'replaces' in document and document['replaces'] == document['document']
 
-                if not new_version and doc_id and doc_status not in ['R', 'D']:
-                    raise ValidationException('The document already exists')
-            
-                if 'replaces' in document:
-                    replaces_doc_id = None
-                    if document['replaces'] != document['document']:
-                        replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['replaces'])
-                        if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
-                            raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
+                        if not new_version and doc_id and doc_status not in ['R', 'D']:
+                            raise ValidationException('The document already exists')
+                    
+                        if 'replaces' in document:
+                            replaces_doc_id = None
+                            if document['replaces'] != document['document']:
+                                replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['replaces'])
+                                if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
+                                    raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
-                if not doc_id:
-                    # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
-                    doc_id = create_doc(cursor, document, payload['dr:realm'])
+                        if not doc_id:
+                            # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
+                            doc_id = create_doc(cursor, document, payload['dr:realm'])
 
-                version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
+                        version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
 
-                if 'replaces' in document:
-                    if new_version:
-                        # Self replacement
-                        create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
+                        if 'replaces' in document:
+                            if new_version:
+                                # Self replacement
+                                create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
+                            else:
+                                create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
                     else:
-                        create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
-            else:
-                # Reference to an existing document
-                if not doc_id or doc_status in ['R', 'D']:
-                    raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
+                        # Reference to an existing document
+                        if not doc_id or doc_status in ['R', 'D']:
+                            raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
 
-            create_doc_event(cursor, tx_id, doc_id, None, 
-                             'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
-                             'I' if 'dr:stageFilename' in document else 'J')
+                    create_doc_event(cursor, tx_id, doc_id, None, 
+                                    'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
+                                    'I' if 'dr:stageFilename' in document else 'J')
 
-            if 'references' in payload:
-                create_references(cursor, payload['references'], version_id)
+                    if 'references' in payload:
+                        create_references(cursor, payload['references'], version_id)
 
-            if 'references' in document:
-                create_references(cursor, document['references'], version_id)
+                    if 'references' in document:
+                        create_references(cursor, document['references'], version_id)
 
-            document['dr:documentId'] = doc_id
-            document['dr:documentVersionId'] = version_id
-    finally:
-        cursor.close()
+                    document['dr:documentId'] = doc_id
+                    document['dr:documentVersionId'] = version_id
+                    span.set_status(Status(StatusCode.OK))
+            finally:
+                cursor.close()
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR))
+            span.record_exception(e)
+            raise e
+
 
 def stage_dirname(untrusted_file_mount):
     return "{}/{}".format(untrusted_file_mount, uuid.uuid1())
@@ -271,7 +303,7 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
     span = trace.get_current_span()
     span.set_attribute('realm', realm)
     
-    start = current_time_ms() 
+    start = current_time_ms()
     connection = connection_pool.get_connection()
     stage_dir = stage_dirname(untrusted_fs_mount)
     try:
