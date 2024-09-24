@@ -5,8 +5,7 @@ import pathlib
 import logging
 
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode
-
+from opentelemetry.trace import Status, StatusCode, SpanKind
 from exceptions import ValidationException
 
 def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_mime_dict):
@@ -39,7 +38,8 @@ def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_
             span.record_exception(e)
             raise e
 
-    with tracer.start_as_current_span("scan_documents") as span:
+    with tracer.start_as_current_span("scan_documents", kind=SpanKind.CLIENT, 
+                              attributes={'rpc.system': 'clamav', 'server.address': 'clamav'}) as span:
         try:
             # This assumes that the staging area is created just below the untrusted filesystem mount
             result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))

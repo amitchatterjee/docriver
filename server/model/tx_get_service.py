@@ -1,18 +1,21 @@
-from opentelemetry import trace
+from opentelemetry import trace, baggage
 from opentelemetry.trace import Status, StatusCode
+from opentelemetry.context import attach, detach
 from datetime import datetime
+from trace_util import new_span
+from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 import dao.tx as dao
 
 def get_events(realm, start, end, connection_pool, token, auth_public_keys, auth_audience):
+    # token = attach(baggage.set_baggage('realm', realm))
     span = trace.get_current_span()
-    span.set_attributes({'realm': realm, 
-                        'startTime': start, 
-                        'endTime': end})
+    span.set_attributes({'realm': realm, 'from': start, 
+                        'to': end})
     
     # TODO authorize the request
     
-    connection = connection_pool.get_connection()
+    connection = MySQLInstrumentor().instrument_connection(connection_pool.get_connection())
     cursor = None
     try:
         cursor = connection.cursor()

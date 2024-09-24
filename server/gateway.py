@@ -19,6 +19,9 @@ from controller.http import init_app, init_params
 from auth.keystore import get_entries
 
 def init_db(host, port, db, user, password, pool_size):
+    # Instrument MySQL conections
+    MySQLInstrumentor().instrument()
+    
     return mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', 
             pool_size=pool_size,
             user=user, password=password,
@@ -70,8 +73,6 @@ def init_tracer(exp = None, endpoint = None, auth_token_key=None, auth_token_val
     # TODO make the name cofigurable
     tracer = trace.get_tracer("docriver-gateway")
     
-    # Instrument MySQL conections
-    MySQLInstrumentor().instrument()
     return tracer
 
 def parse_args(args):
@@ -126,12 +127,13 @@ def parse_args(args):
 if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
     logging.basicConfig(level=args.log)
+    
+    tracer = init_tracer(args.otelExp, args.otelExpEndpoint, args.otelAuthTokenKey, args.otelAuthTokenVal)
+    
     connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
     minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
     scanner = init_virus_scanner(args.scanHost, args.scanPort)
     auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys = init_authorization(args.authKeystore, args.authPassword)
-
-    tracer = init_tracer(args.otelExp, args.otelExpEndpoint, args.otelAuthTokenKey, args.otelAuthTokenVal)
 
     app = init_app()
     

@@ -3,6 +3,7 @@ from dao.document import get_doc_location
 from exceptions import DocumentException
 from model.s3_url import parse_url
 from model.authorizer import authorize_get_document
+from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 import logging
 
@@ -25,7 +26,7 @@ def stream_document(connection_pool, minio, bucket, realm, document, public_keys
     principal,auth,issuer = authorize_get_document(public_keys, token, audience, realm, document)    
     logging.info("Received document request: {}/{}. Principal: {}".format(realm, document, principal))
 
-    connection = connection_pool.get_connection()
+    connection = connection = MySQLInstrumentor().instrument_connection(connection_pool.get_connection())
     cursor = None
     try:
         cursor = connection.cursor()
