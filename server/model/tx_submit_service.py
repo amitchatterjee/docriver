@@ -217,50 +217,51 @@ def write_metadata(principal, connection, bucket, payload):
             
             documents = payload['documents']
             for document in documents:
-                doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['document'])            
+                with new_span("Write_metadata_document", attributes={'document': document['document']}):
+                    doc_id, version_id, doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['document'])            
 
-                if 'dr:stageFilename' in document:
-                    new_version = 'replaces' in document and document['replaces'] == document['document']
+                    if 'dr:stageFilename' in document:
+                        new_version = 'replaces' in document and document['replaces'] == document['document']
 
-                    if not new_version and doc_id and doc_status not in ['R', 'D']:
-                        raise ValidationException('The document already exists')
-                
-                    if 'replaces' in document:
-                        replaces_doc_id = None
-                        if document['replaces'] != document['document']:
-                            replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['replaces'])
-                            if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
-                                raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
+                        if not new_version and doc_id and doc_status not in ['R', 'D']:
+                            raise ValidationException('The document already exists')
+                    
+                        if 'replaces' in document:
+                            replaces_doc_id = None
+                            if document['replaces'] != document['document']:
+                                replaces_doc_id, replaces_version_id, replaces_doc_status = get_doc_by_name(cursor, payload['dr:realm'], document['replaces'])
+                                if replaces_doc_id == None or replaces_doc_status in ['R', 'D']:
+                                    raise ValidationException('Non-existent or replaced replacement document: {}'.format(document['replaces']))
 
-                    if not doc_id:
-                        # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
-                        doc_id = create_doc(cursor, document, payload['dr:realm'])
+                        if not doc_id:
+                            # The document may already exist becaause a previous document with the same name has been replaced/voided or this is a "self-replacement" document (new version)
+                            doc_id = create_doc(cursor, document, payload['dr:realm'])
 
-                    version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
+                        version_id = create_doc_version(bucket, cursor, tx_id, doc_id, format_doc_key(payload, document), document)
 
-                    if 'replaces' in document:
-                        if new_version:
-                            # Self replacement
-                            create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
-                        else:
-                            create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
-                else:
-                    # Reference to an existing document
-                    if not doc_id or doc_status in ['R', 'D']:
-                        raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
+                        if 'replaces' in document:
+                            if new_version:
+                                # Self replacement
+                                create_doc_event(cursor, tx_id, doc_id, None, 'NEW_VERSION', 'V')
+                            else:
+                                create_doc_event(cursor, tx_id, replaces_doc_id, doc_id, 'REPLACEMENT', 'R')
+                    else:
+                        # Reference to an existing document
+                        if not doc_id or doc_status in ['R', 'D']:
+                            raise ValidationException("Document: {} not found or has been replaced".format(document['document']))
 
-                create_doc_event(cursor, tx_id, doc_id, None, 
-                                'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
-                                'I' if 'dr:stageFilename' in document else 'J')
+                    create_doc_event(cursor, tx_id, doc_id, None, 
+                                    'INGESTION' if 'dr:stageFilename' in document else 'REFERENCE', 
+                                    'I' if 'dr:stageFilename' in document else 'J')
 
-                if 'references' in payload:
-                    create_references(cursor, payload['references'], version_id)
+                    if 'references' in payload:
+                        create_references(cursor, payload['references'], version_id)
 
-                if 'references' in document:
-                    create_references(cursor, document['references'], version_id)
+                    if 'references' in document:
+                        create_references(cursor, document['references'], version_id)
 
-                document['dr:documentId'] = doc_id
-                document['dr:documentVersionId'] = version_id
+                    document['dr:documentId'] = doc_id
+                    document['dr:documentVersionId'] = version_id
         finally:
             cursor.close()
 

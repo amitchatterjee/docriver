@@ -7,11 +7,11 @@ import logging
 from opentelemetry import trace
 from opentelemetry.trace import Status, StatusCode, SpanKind
 from exceptions import ValidationException
+from trace_util import new_span
 
 def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_mime_dict):
-    tracer = trace.get_tracer('docriver-gateway')
-    with tracer.start_as_current_span("validate_document_extensions") as span:
-        try:
+    with new_span('validate_document'):
+        with new_span("validate_document_extensions"):
             for file in listdir(stage_dir):
                 full_path = join(stage_dir, file)
                 if isfile(full_path):
@@ -32,26 +32,15 @@ def validate_documents(principal, scanner, scan_file_mount, stage_dir, filename_
                         # print('Type:', info.type)
                         # print('File extension:', info.extension[0])
                         # print('MIME type:', info.mime[0])
-            span.set_status(Status(StatusCode.OK))
-        except Exception as e:
-            span.set_status(Status(StatusCode.ERROR))
-            span.record_exception(e)
-            raise e
 
-    with tracer.start_as_current_span("scan_documents", kind=SpanKind.CLIENT, 
-                              attributes={'rpc.system': 'clamav', 'server.address': 'clamav'}) as span:
-        try:
+        with new_span("scan_documents", kind=SpanKind.CLIENT, 
+                                    attributes={'rpc.system': 'clamav', 'rpc.service': scanner.host}) as span:
             # This assumes that the staging area is created just below the untrusted filesystem mount
             result = scanner.scan(join(scan_file_mount, pathlib.Path(stage_dir).name))
             for kv in result.items():
                 if kv[1][0] != 'OK':
                     logging.getLogger("Integrity").warning("Integrity check failed on file {}. Error: {}, principal: {}".format(kv[0], kv[1], principal))
                     raise ValidationException("Virus check failed on file: {}. Error: {}".format(kv[0], kv[1]))
-            span.set_status(Status(StatusCode.OK))
-        except Exception as e:
-            span.set_status(Status(StatusCode.ERROR))
-            span.record_exception(e)
-            raise e
         
     # TODO this code is temporary
     # command="""
