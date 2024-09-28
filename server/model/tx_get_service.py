@@ -1,8 +1,5 @@
-from opentelemetry import trace, baggage
-from opentelemetry.trace import Status, StatusCode
-from opentelemetry.context import attach, detach
+from opentelemetry import trace
 from datetime import datetime
-from trace_util import new_span
 from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 import dao.tx as dao
@@ -29,12 +26,7 @@ def get_events(realm, start, end, connection_pool, token, auth_public_keys, auth
                            'type': event[6],
                            'mime': event[7]})
         span.set_attribute('numEvents', len(events))
-        span.set_status(Status(StatusCode.OK))
         return result
-    except Exception as e:
-        span.set_status(Status(StatusCode.ERROR))
-        span.record_exception(e)
-        raise e
     finally:
         if cursor:
             cursor.close()

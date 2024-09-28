@@ -10,7 +10,11 @@ export DOCRIVER_OTEL_EXP=otlp
 bulk-docs-submit.sh -f $HOME/few-cheetahs -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/" -u "https://localhost:8443/tx" -n
 
 # To trigger the tracing for getEvents:
-curl --insecure --header "Accept: application/json"  https://localhost:8443/tx/p123456
+# TODO remove hardcoding for the endpoint
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelExp $DOCRIVER_OTEL_EXP --otelExpEndpoint http://localhost:4318/v1/traces --otelAuthTokenKey $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER --otelAuthTokenVal $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL get events
+
+# To trigger the tracing for getDocument:
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelExp $DOCRIVER_OTEL_EXP --otelExpEndpoint http://localhost:4318/v1/traces --otelAuthTokenKey $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER --otelAuthTokenVal $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug get document --name 58be1ca0-7a9d-11ef-98f3-2016b95ee0b1 --output /tmp/something.pdf
 
 # To trigger the tracing for document submit using REST:
 doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf -u "https://localhost:8443/tx" -n

@@ -8,7 +8,7 @@ services:
     volumes:
     - ${DOCRIVER_GW_HOME}/infrastructure/opentel-collector/collector-config.yaml:/etc/otelcol/config.yaml
     environment:
-      - DOCRIVER_OPENTEL_EXPORT_ENDPOINT=${DOCRIVER_OPENTEL_EXPORT_ENDPOINT:-localhost:4317}
+      - DOCRIVER_OPENTEL_EXPORT_ENDPOINT=${DOCRIVER_OPENTEL_EXPORT_ENDPOINT:-localhost:4318}
       - DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL=${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL}
     ports:
     - ${DOCRIVER_OPENTEL_GRPC_PORT:-4317}:4317

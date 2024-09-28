@@ -12,12 +12,13 @@ from model.tx_get_service import get_events
 from actuator.health import get_health
 from controller.html_utils import to_html
 from model.document_service import stream_document
+from trace_util import new_span
 
 gw = Blueprint('docriver-http', __name__)
 
 @gw.route('/tx/<realm>', methods=['POST'])
 def process_submit_tx(realm):
-    with tracer.start_as_current_span("submit_tx") as span:
+    with new_span("submit_tx") as span:
         result = submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, connection_pool, minio, scanner, auth_public_keys, auth_audience, realm, request)
         if request.headers.get('Accept', default='text/html') == 'application/json':
             return jsonify(result), {'Content-Type': 'application/json'}
@@ -37,7 +38,7 @@ def process_delete_tx(realm):
 @gw.route('/tx/<realm>', methods=['GET'])
 @accept('application/json')
 def process_get_tx_events(realm):
-    with tracer.start_as_current_span("get_tx_events") as span:
+    with new_span("get_tx_events") as span:
         end = int(request.args.get('to', time.time()))
         start = int(request.args.get('from')) if 'from' in request.args else end - 24*60*60
         token = request.args.get('authorization') if 'authorization' in request.args else request.headers.get('Authorization')
@@ -45,8 +46,9 @@ def process_get_tx_events(realm):
 
 @gw.route('/document/<realm>/<path:document>', methods=['GET'])
 def process_document_get(realm, document):
-    token = request.args.get('authorization') if request.args.get('authorization') else request.headers.get('Authorization')
-    return stream_document(connection_pool, minio, bucket, realm, document, auth_public_keys, auth_audience, token)
+    with new_span("document_get", attributes={'realm': realm, 'document': document} ) as span:
+        token = request.args.get('authorization') if request.args.get('authorization') else request.headers.get('Authorization')
+        return stream_document(connection_pool, minio, bucket, realm, document, auth_public_keys, auth_audience, token)
 
 @gw.route('/favicon.ico')
 def favicon():

@@ -9,7 +9,7 @@ import pathlib
 import fleep
 
 from opentelemetry import trace
-from opentelemetry.trace import Status, StatusCode, SpanKind
+from opentelemetry.trace import SpanKind
 from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from minio.commonconfig import Tags
 import json
@@ -158,7 +158,6 @@ def stage_documents_from_manifest(principal, stage_dir, raw_file_mount, payload)
                 if 'mimeType' not in document['content']:
                     document['content']['mimeType'] = mimetypes.guess_type(document['dr:stageFilename'], strict=False)[0]
                 filename_mime_dict[stage_filename] = document['content']['mimeType']
-                span.set_status(StatusCode.OK)
         return filename_mime_dict
 
 def find_matching_document(documents, filename):
@@ -323,12 +322,9 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         
         connection.commit()
         span.set_attributes({'numDocuments': len(payload['documents']), 'txKey': payload['dr:txId']})
-        span.set_status(Status(StatusCode.OK))
         return result
     except Exception as e:
         connection.rollback()
-        span.set_status(Status(StatusCode.ERROR))
-        span.record_exception(e)
         raise e
     finally:
         if os.path.isdir(stage_dir):
