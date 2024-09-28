@@ -16,6 +16,10 @@ services:
       #  condition: service_healthy
         # restart: true
     user: 1000:1000
+    environment:
+      # TODO remove hardcoding
+      OTEL_RESOURCE_ATTRIBUTES: "service.name=docriver-gateway,service.version=1.0.0,deployment.environment=development"
+      #OTEL_PROPAGATORS: “tracecontext,baggage”
     volumes:
     - ${DOCRIVER_GW_HOME}/server:/app
     - ${HOME}/.ssh/docriver:/keystore

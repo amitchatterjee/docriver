@@ -38,8 +38,8 @@ def process_delete_tx(realm):
 @accept('application/json')
 def process_get_tx_events(realm):
     with tracer.start_as_current_span("get_tx_events") as span:
-        end = int(request.args.get('endTime', time.time()))
-        start = int(request.args.get('startTime')) if 'startTime' in request.args else end - 24*60*60
+        end = int(request.args.get('to', time.time()))
+        start = int(request.args.get('from')) if 'from' in request.args else end - 24*60*60
         token = request.args.get('authorization') if 'authorization' in request.args else request.headers.get('Authorization')
         return get_events(realm, start, end, connection_pool, token, auth_public_keys, auth_audience)
 
