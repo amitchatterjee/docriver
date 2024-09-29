@@ -96,3 +96,16 @@ def authorize_get_document(public_keys, token, audience, realm, document):
     except Exception as e:
         logging.getLogger('Authorization').warning("Authorization failure - issuer: {}, token: {}, exception: {}".format(issuer, auth, e))
         raise AuthorizationException('Not authorized for this operation') from e
+    
+def authorize_get_events(public_keys, token, audience, realm):
+    auth = None 
+    issuer = None
+    if not public_keys:
+        return 'unknown', auth, issuer
+    try:
+        auth, issuer = validate_token_authorize_base(public_keys, token, audience, realm)
+        raiseif(auth['permissions']['txType'] != 'get-events', 'transaction type invalid')
+        return auth['sub'],auth,issuer
+    except Exception as e:
+        logging.getLogger('Authorization').warning("Authorization failure - issuer: {}, token: {}, exception: {}".format(issuer, auth, e))
+        raise AuthorizationException('Not authorized for this operation') from e

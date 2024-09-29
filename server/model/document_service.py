@@ -17,16 +17,13 @@ def stream(minio, bucket, path):
     span.set_attribute('path',path)
     response = None
     try:
-        with new_span('minio_get_object', kind=SpanKind.CLIENT, 
-                              attributes={'document': path, 
-                                          'db.name': bucket, 'db.system': 'minio'}):
-            response = minio.get_object(bucket, path)
-            while True:
-                chunk = response.read(amt=1024)
-                if len(chunk) > 0:
-                    yield chunk
-                else:
-                    return None
+        response = minio.get_object(bucket, path)
+        while True:
+            chunk = response.read(amt=1024)
+            if len(chunk) > 0:
+                yield chunk
+            else:
+                return None
     finally:
         response.close()
         response.release_conn()
@@ -47,7 +44,9 @@ def stream_document(connection_pool, minio, bucket, realm, document, public_keys
         if not location:
             raise DocumentException('Document not found')
         bucket, path = parse_url(location)
-        return stream(minio, bucket, path), 200, {'Content-Type': mime_type}
+        with new_span('minio_get_object', kind=SpanKind.CLIENT, 
+                    attributes={'document': path, 'db.name': bucket, 'db.system': 'minio'}):
+            return stream(minio, bucket, path), 200, {'Content-Type': mime_type}
         # return app.response_class(response.stream(), status=response.status, headers=response.getheaders().items())
     finally:
         if cursor:

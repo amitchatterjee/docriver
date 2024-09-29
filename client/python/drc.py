@@ -80,6 +80,7 @@ def handle_get_doc(global_args, args):
         with open(args.output, 'wb') as file:
             for chunk in response.iter_content(chunk_size=8192):
                 file.write(chunk)
+        print(f"Document downloaded to {args.output}")
         
 def parse_get_doc(args):
     parser = argparse.ArgumentParser()
@@ -97,12 +98,16 @@ def parse_get_events(args):
 
 def handle_get_events(global_args, args):
     args = parse_get_events(args)
+    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(global_args.keystore, global_args.keystorePassword)    
+    # TODO change to narrower permissions
+    encoded, payload = issue(private_key, signer_cn, global_args.subject, global_args.audience, 60,  global_args.resource, {'txType': 'get-events'})
+    
     params = {}
     if args.fromTime:
         params['from'] = args.fromTime
     if args.toTime:
         params['to'] = args.toTime
-    with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json'}, verify=not global_args.noverify) as response:
+    with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json', 'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify) as response:
         response.raise_for_status() 
         print(response.text)
 
