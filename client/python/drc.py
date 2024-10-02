@@ -14,6 +14,8 @@ import tempfile
 import mimetypes
 from urllib.parse import quote
 import urllib3
+import base64
+import shutil
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -146,7 +148,6 @@ def parse_submit_args(global_args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source", help="Full path name of the source location. Maybe a file or a directory", required=True)
-    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading")
     supported_methods = ['inline', 'upload', 'copy']
     parser.add_argument("--method", choices=supported_methods,
                         default='upload', help="Method by which the files are submitted")
@@ -163,8 +164,14 @@ def parse_submit_args(global_args):
                         help="Description of the purpose of this document")
     parser.add_argument("--replacesDocument",
                         help="The ID of the document that this document replaces")
+    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading")
     return parser.parse_args(global_args.args)
 
+def file_to_base64(file_path):
+    with open(file_path, "rb") as file:
+        file_content = file.read()
+        base64_encoded = base64.b64encode(file_content)
+        return base64_encoded.decode('utf-8')
 
 def handle_submit(global_args):
     files = []
@@ -181,9 +188,10 @@ def handle_submit(global_args):
         basedir, file = os.path.split(args.source)
         files.append(file)
         
-    # TODO validate args
+    # Validate args
     raiseif(args.resourceId and not args.resourceType, 'If resourceId is specified, resourceType must also be specified')
     raiseif(len(files) > 1 and args.replacesDocument, "replacesDocument option is only supported when submitting a single document")
+    raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
 
     # Create a manifest and save to a temporary location
     manifest = {'tx': f"{str(uuid.uuid4())}", 'documents': []}
@@ -194,20 +202,38 @@ def handle_submit(global_args):
             references[0]['resourceDescription'] = args.resourceDescription
         manifest['references'] = references
 
-    manifest_path = None
     for file in files:
         index = file.rfind('.')
         # fname = file[:index]
         ext = file[index+1:]
-        manifest['documents'].append({'document': f"{args.prefix}{file}-{int(time.time())}",
-                                     'type': args.documentType if args.documentType else ext,
-                                      'content': {'path': file},
-                                      'properties': {'filename': file}})
+        content = {}
+        if args.method == 'inline':
+            mime = mimetypes.guess_type(file)[0]
+            content['mimeType'] = mime
+            content['encoding'] = 'base64'
+            content['inline'] = file_to_base64(os.path.join(basedir, file))
+        else:
+            content['path'] = file
+        doc = {'document': f"{args.prefix}{file}-{int(time.time())}",
+                'type': args.documentType if args.documentType else ext,
+                'content': content,
+                'properties': {'filename': file}}
+        if args.replacesDocument:
+            doc['replaces'] = args.replacesDocument
+        manifest['documents'].append(doc)
 
+    manifest_path = None
     with tempfile.NamedTemporaryFile(mode='w+t', delete=False, suffix='.json', prefix='manifest-') as tmpfile:
         tmpfile.write(json.dumps(manifest))
         manifest_path = tmpfile.name
     info.append({'manifest': manifest_path})
+
+    if args.method == 'copy':
+        # copy the files
+        to = f"{args.rawFilesystemMount}/{global_args.realm}"
+        os.makedirs(to, exist_ok=True)
+        for file in files:
+            shutil.copy(os.path.join(basedir, file), to) 
 
     # Setup auth token
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
@@ -219,21 +245,29 @@ def handle_submit(global_args):
     encoded, payload = issue(private_key, signer_cn, global_args.subject,
                              global_args.audience, 60,  global_args.resource, requested_grants)
 
-    # Create form data upload list
-    form_files = [('files', ('manifest.json', open(
-        manifest_path, 'r'), 'application/json'))]
-    for file in files:
-        mime = mimetypes.guess_type(file)[0]
-        form_files.append(
-            ('files', (file, open(os.path.join(basedir, file), 'rb'), mime)))
-
+    response_json = None
     # Send the request
-    with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
-                       headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
-        response.raise_for_status()
-        response_json = response.json()
-        response_json['info'] = info
-        print(json.dumps(response_json, indent=2))
+    if args.method == 'upload':
+        # Create form data upload list
+        form_files = [('files', ('manifest.json', open(
+            manifest_path, 'r'), 'application/json'))]
+        for file in files:
+            mime = mimetypes.guess_type(file)[0]
+            form_files.append(
+                ('files', (file, open(os.path.join(basedir, file), 'rb'), mime)))
+        with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
+                        headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
+            response.raise_for_status()
+            response_json = response.json()
+    else:
+        with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
+                        json=manifest,
+                        headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json', 'Content-Type': 'application/json'}, verify=not global_args.noverify) as response:
+            response.raise_for_status()
+            response_json = response.json()
+    
+    response_json['info'] = info
+    print(json.dumps(response_json, indent=2))
 
 def handle_command(args):
     if args.command == 'get':

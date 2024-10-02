@@ -25,7 +25,7 @@ services:
     - ${HOME}/.ssh/docriver:/keystore
     - ${HOME}/storage/docriver/raw:/raw
     - ${HOME}/storage/docriver/untrusted:/untrusted
-    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--otelExp", "${DOCRIVER_OTEL_EXP:-none}", "--otelExpEndpoint", "${DOCRIVER_OTEL_EXP_ENDPOINT:-none}", "--otelAuthTokenKey", "${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER:-}", "--otelAuthTokenVal", "${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL:-}"]
+    command: ["python", "/app/gateway.py", "--authKeystore", "/keystore/truststore.p12", "--authPassword", "docriver", "--rawFilesystemMount", "/raw", "--untrustedFilesystemMount", "/untrusted", "--dbHost", "mysql", "--scanHost", "clamav", "--objUrl", "minio:9000", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--otelExp", "${DOCRIVER_OTEL_EXP:-none}", "--otelExpEndpoint", "http://opentel-collector:4318/v1/traces", "--otelAuthTokenKey", "${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER:-}", "--otelAuthTokenVal", "${DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL:-}"]
     healthcheck:
       interval: 60s
       retries: 10
@@ -33,15 +33,27 @@ services:
       start_interval: 10s
       test: curl --insecure https://localhost:5000/health || exit 1
       timeout: 30s
+#  docriver-nginx:
+#    image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
+#    depends_on:
+#      docriver-gateway:
+#        condition: service_healthy
+#    # TODO change to nginx from nginx-debug
+#    command: nginx-debug -g 'daemon off;'
+#    volumes:
+#    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/gateway.conf:/etc/nginx/nginx.conf
+#    - ${HOME}/.ssh/docriver:/etc/nginx/certs
+#    ports:
+#    - ${DOCRIVER_NGINX_PORT:-8443}:443
   docriver-nginx:
-    image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
+    image: nginx-opentel:0.0.1-SNAPSHOT
     depends_on:
       docriver-gateway:
         condition: service_healthy
-    # TODO change to nginx from nginx-debug
-    command: nginx-debug -g 'daemon off;'
+    # command: nginx-debug -g 'daemon off;'
     volumes:
     - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/gateway.conf:/etc/nginx/nginx.conf
+    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/opentelemetry_module.conf:/etc/nginx/conf.d/opentelemetry_module.conf
     - ${HOME}/.ssh/docriver:/etc/nginx/certs
     ports:
     - ${DOCRIVER_NGINX_PORT:-8443}:443

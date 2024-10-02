@@ -24,8 +24,10 @@ export DOCRIVER_OPENTEL_GRPC_PORT=4317
 export DOCRIVER_OPENTEL_HTTP_PORT=4318
 export DOCRIVER_OPENTEL_UX_PORT=55679
 
-# Change the following environment variable to "otlp" if you want to use the opentelemetry collector. You can also set the value to "console" to view the traces on console. Note that when using "otlp", the observer docker processes must be started
+# Change the following environment variable to "otlp" if you want to use the opentelemetry collector. You can also set the value to "console" to view the traces on console. Note that when using "otlp", the observer docker processes must be started - see below
 export DOCRIVER_OTEL_EXP=none
+
+# These parameters are used by the collector to export the traces. They must be set when using the observer
 export DOCRIVER_OTEL_EXP_ENDPOINT=http://opentel-collector:${DOCRIVER_OPENTEL_HTTP_PORT}/v1/traces
 export DOCRIVER_OPENTEL_EXPORT_ENDPOINT_HEADER=
 export DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL=

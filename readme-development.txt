@@ -89,6 +89,13 @@ pip install debugpy
 }
 
 #######################################################
+# Build the docker containers
+#######################################################
+$DOCRIVER_GW_HOME/infrastructure/sh/build-docker.sh docriver-base
+
+$DOCRIVER_GW_HOME/infrastructure/sh/build-docker.sh nginx-opentel
+
+#######################################################
 # Start infrastructure components
 #######################################################
 # Start backend components needed for the document repo server
@@ -100,10 +107,10 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backen
 # Start the docker gateway docker containers - Note that this is not needed if you want to run the gateway by executing the python commands shown below.
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
-# Run the gateway without Authorization
+# Run the gateway without Authorization - bad idea
 python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
-# Run the gateway with Authorization turned on
+# Run the gateway with Authorization turned on - recommended
 python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
@@ -117,14 +124,25 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/serv
 # To connect to a server with self-signed certificate, append the following additional parameters (change as needed) to the commands below:
 -u "https://localhost:5000/tx" -n
 
-# Inline document ingestion
+# Inline document ingestion - deprecated
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
-# Ingestion from raw file mount
+# Inline document ingestion using the drc client - recommended
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelExp $DOCRIVER_OTEL_EXP --otelExpEndpoint http://localhost:4318/v1/traces --otelAuthTokenKey $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER --otelAuthTokenVal $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method inline --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment'
+
+
+# Ingestion from raw file mount - deprecated
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
 
-# Multipart form file ingestion
+# Ingestion from raw file mount using the drc client - recommended
+
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelExp $DOCRIVER_OTEL_EXP --otelExpEndpoint http://localhost:4318/v1/traces --otelAuthTokenKey $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER --otelAuthTokenVal $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method copy --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --rawFilesystemMount $HOME/storage/docriver/raw
+
+# Multipart form file ingestion - deprecated
 $DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/"
+
+# Multipart form file ingestion using the drc client - recommended
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelExp $DOCRIVER_OTEL_EXP --otelExpEndpoint http://localhost:4318/v1/traces --otelAuthTokenKey $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_HEADER --otelAuthTokenVal $DOCRIVER_OPENTEL_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --source $HOME/cheetah --documentType "Flickr images" --prefix "$(date '+%Y-%m-%d-%H-%M-%S')/" --resourceType image --resourceId 123 --resourceDescription 'upload from flickr'
 
 # Virus scan failure
 $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
