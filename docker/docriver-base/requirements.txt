@@ -18,3 +18,5 @@ opentelemetry-exporter-otlp-proto-http
 opentelemetry-instrumentation-flask
 opentelemetry-instrumentation-mysql
 opentelemetry-instrumentation-requests
+opentelemetry-instrumentation-logging
+psutil

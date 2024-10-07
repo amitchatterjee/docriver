@@ -54,13 +54,13 @@ def parse_toplevel_args():
     parser.add_argument('--debug', action='store_true')
 
     parser.add_argument(
-        "--otelExp", help="Opentelemetry exporter. Valid values are: none, console and otlp", default=None)
+        "--otelTraceExp", help="Opentelemetry exporter. Valid values are: none, console and otlp", default=None)
     parser.add_argument(
-        "--otelExpEndpoint", help="Opentelemetry exporter endpoint. Only required for OTLP exporter", default=None)
+        "--otelTraceExpEndpoint", help="Opentelemetry exporter endpoint. Only required for OTLP exporter", default=None)
 
     parser.add_argument(
-        "--otelAuthTokenKey", help="Opentelemetry auth token key name", default='auth')
-    parser.add_argument("--otelAuthTokenVal",
+        "--otelTraceAuthTokenKey", help="Opentelemetry auth token key name", default='auth')
+    parser.add_argument("--otelTraceAuthTokenVal",
                         help="Opentelemetry auth token value", default='')
 
     supported_commands = ['get', 'submit']
@@ -313,8 +313,8 @@ if __name__ == '__main__':
         # print(args)
         logging.basicConfig(level=args.log)
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        tracer = init_tracer(args.otelExp, args.otelExpEndpoint,
-                             args.otelAuthTokenKey, args.otelAuthTokenVal)
+        tracer = init_tracer(args.otelTraceExp, args.otelTraceExpEndpoint,
+                             args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
         handle_command(args)
     except Exception as e:
         if args and args.debug:
