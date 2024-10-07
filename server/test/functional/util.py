@@ -1,7 +1,7 @@
 import os
 import base64
 import time
-from controller.http import init_app, init_params
+from controller.http import init_app
 from gateway import init_db, init_obj_store, init_virus_scanner
 from auth.keystore import get_entries
 from auth.token import issue

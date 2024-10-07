@@ -17,6 +17,7 @@ def init_measurements():
     global requests_counter
     global submit_size_hist
     global proc_error_counter
+    
     meter = metrics.get_meter('docriver-gateway')
     meter.create_observable_gauge(callbacks=[get_cpu_usage_callback], name="cpu_percent", description="CPU Utilization", unit="1")
     meter.create_observable_gauge(callbacks=[get_ram_usage_callback], name="ram_percent", description="RAM Usage", unit="1")
@@ -32,4 +33,4 @@ def record_submit_size(size, attributes={}):
     submit_size_hist.record(size, attributes)
     
 def increment_errors(attributes = {}):
-   proc_error_counter.add(1, attributes)
+   proc_error_counter.record(1, attributes)

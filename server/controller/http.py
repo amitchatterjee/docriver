@@ -30,11 +30,11 @@ def process_submit_tx(realm):
 @gw.route('/tx/<realm>', methods=['DELETE'])
 @accept('application/json')
 def process_delete_tx(realm):
-    # TODO - add tracing span
-    payload = request.json
-    token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
-    result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
-    return jsonify(result), {'Content-Type': 'application/json'}
+    with new_span("delete_tx") as span:
+        payload = request.json
+        token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
+        result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
+        return jsonify(result), {'Content-Type': 'application/json'}
 
 @gw.route('/tx/<realm>', methods=['GET'])
 @accept('application/json')
@@ -95,7 +95,7 @@ def init_app():
     app.register_blueprint(gw)
     return app
 
-def init_params(_connection_pool, _minio, _scanner, _tracer, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount, _auth_private_key, _auth_public_key, _auth_signer_cert, _auth_signer_cn, _auth_public_keys, _auth_audience):
+def init_params(_connection_pool, _minio, _scanner, _bucket, _untrusted_fs_mount, _raw_fs_mount, _scanner_fs_mount, _auth_private_key, _auth_public_key, _auth_signer_cert, _auth_signer_cn, _auth_public_keys, _auth_audience):
     # TODO this is getting ugly fast. Fixit
     global minio
     global connection_pool
@@ -110,8 +110,7 @@ def init_params(_connection_pool, _minio, _scanner, _tracer, _bucket, _untrusted
     global auth_signer_cn
     global auth_public_keys
     global auth_audience
-    global tracer
-
+    
     minio = _minio
     connection_pool = _connection_pool
     scanner = _scanner
@@ -125,4 +124,3 @@ def init_params(_connection_pool, _minio, _scanner, _tracer, _bucket, _untrusted
     auth_signer_cn = _auth_signer_cn
     auth_public_keys = _auth_public_keys
     auth_audience = _auth_audience
-    tracer = _tracer
