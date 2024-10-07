@@ -22,3 +22,13 @@ services:
     command: [
       "--config", "/etc/otelcol/config.yaml", "--feature-gates=-component.UseLocalHostAsDefaultHost"
     ]
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:latest
+    container_name: cadvisor
+    ports:
+    - 8084:8080
+    volumes:
+    - /:/rootfs:ro
+    - /var/run:/var/run:rw
+    - /sys:/sys:ro
+    - /var/lib/docker/:/var/lib/docker:ro

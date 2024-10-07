@@ -14,6 +14,13 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
+  prometheus:
+    config:
+      scrape_configs:
+      - job_name: 'otel-collector'
+        scrape_interval: 30s
+        static_configs:
+        - targets: ['cadvisor:8080']
 
 processors:
   batch:
@@ -67,6 +74,7 @@ exporters:
   otlp/trace_backend:
     endpoint: ${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT}
     headers:
+      # TODO - this is not working, probably because we are using gRPC??
       Authorization: ${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL}
   otlphttp/metrics_backend:
     # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
@@ -81,7 +89,7 @@ service:
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
           exporters: [otlp/trace_backend]
         metrics:
-          receivers: [otlp]
+          receivers: [otlp, prometheus]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, transform/add_resource_attributes_as_metric_attributes, batch]
           exporters: [otlphttp/metrics_backend]
           # exporters: [debug]

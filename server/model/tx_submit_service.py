@@ -305,7 +305,7 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
 
         logging.info("Received submission request: {}/{}. Content-Type: {}, accept: {}, principal: {}".format(payload['dr:realm'], payload['tx'], request.content_type, request.headers.get('Accept', default='text/html'), payload['dr:principal']))
         
-        span.set_attributes({'principal': payload['dr:principal'], 'tx': payload['tx'], 'contentType': request.headers.get('Accept', default='text/html')})
+        span.set_attributes({'principal': payload['dr:principal'], 'tx': payload['tx'], 'contentType': request.headers.get('Accept', default='text/html'), 'tx': payload['tx']})
 
         os.makedirs(stage_dir)
 

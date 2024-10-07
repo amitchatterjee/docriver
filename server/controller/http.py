@@ -30,6 +30,7 @@ def process_submit_tx(realm):
 @gw.route('/tx/<realm>', methods=['DELETE'])
 @accept('application/json')
 def process_delete_tx(realm):
+    # TODO - add tracing span
     payload = request.json
     token = payload['authorization'] if 'authorization' in payload else request.headers.get('Authorization')
     result = delete_docs_tx(token, realm, payload, connection_pool, auth_public_keys, auth_audience)
