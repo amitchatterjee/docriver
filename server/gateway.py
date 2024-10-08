@@ -21,7 +21,14 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.metrics import set_meter_provider
+
+from opentelemetry._logs import get_logger
+from opentelemetry._logs import get_logger_provider
+from opentelemetry._logs import set_logger_provider
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
+from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
+from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
 
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
@@ -48,11 +55,11 @@ def init_virus_scanner(host, port):
 def init_authorization(keystore, password):
     if not keystore:
         # authorization is not enabled
-         logging.getLogger('Authorization').warning("Authorization disabled!!!")
+         logging.getLogger().warning("Authorization disabled!!!")
          return None, None, None, None, None
     return get_entries(keystore, password)
 
-def init_tracer(exp = None, endpoint = None, auth_token_key=None, auth_token_val=None):
+def init_tracing(exp = None, endpoint = None, auth_token_key=None, auth_token_val=None):
     resources = {'service.instance.id': socket.gethostname()}
     if auth_token_key:
         resources[auth_token_key] = auth_token_val
@@ -67,7 +74,7 @@ def init_tracer(exp = None, endpoint = None, auth_token_key=None, auth_token_val
         processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
         provider.add_span_processor(processor)
     else:
-        logging.getLogger('Tracer').info("Tracer is not enabled")
+        logging.getLogger().info("Tracer is not enabled")
 
     # Sets the global default tracer provider
     trace.set_tracer_provider(tracer_provider=provider)
@@ -85,13 +92,34 @@ def init_metrics(exp = None, endpoint = None):
         exporter = OTLPMetricExporter(endpoint=endpoint)
         readers.append(PeriodicExportingMetricReader(exporter))
     else:
-        logging.getLogger('Metrics').warning("Metrics is not enabled")
+        logging.getLogger().warning("Metrics is not enabled")
         
     resources = {'service.instance.id': socket.gethostname()}
     resource = Resource.create(resources)        
     provider = MeterProvider(resource = resource, metric_readers=readers)
     set_meter_provider(provider)
     metrics_util.init_measurements()
+
+def init_logging(level):
+    # TODO Make configurable
+    # OTEL_LOGS_EXPORTER: "otlp"
+    # OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "http://opentel-collector:4318/v1/logs"
+    
+    '''
+    logger_provider = LoggerProvider()
+    set_logger_provider(logger_provider)
+    exporter = OTLPLogExporter(endpoint='http://opentel-collector:4318/v1/logs')
+    logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+    otel_handler = LoggingHandler(level=level, logger_provider=logger_provider)
+    logging.getLogger().addHandler(otel_handler)
+    
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(level)
+    logging.getLogger().addHandler(console_handler)
+    '''
+        
+    LoggingInstrumentor().instrument(set_logging_format=True)
+    logging.basicConfig(level=level)
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -128,7 +156,7 @@ def parse_args(args):
     parser.add_argument('--tlsCert', default=None,
                         help="A file containing the site's TLS certificate (PEM)")
 
-    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='WARN')
+    parser.add_argument("--log", help="log level (valid values are INFO, WARNING, ERROR, NONE", default='INFO')
     parser.add_argument('--debug', action='store_true')
 
     parser.add_argument("--otelTraceExp", help="Opentelemetry trace exporter. Valid values are: none, console and otlp", default=None)
@@ -147,20 +175,22 @@ def parse_args(args):
 
 if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
-    tracer = init_tracer(args.otelTraceExp, args.otelTraceExpEndpoint, args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
     
-    LoggingInstrumentor().instrument(set_logging_format=True)
-    logging.basicConfig(level=args.log)
+    init_tracing(args.otelTraceExp, args.otelTraceExpEndpoint, args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
+    
+    init_logging(args.log)
     
     init_metrics(args.otelMetricsExp, args.otelMetricsExpEndpoint)
     
     connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
+    
     minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
+    
     scanner = init_virus_scanner(args.scanHost, args.scanPort)
+    
     auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys = init_authorization(args.authKeystore, args.authPassword)
 
     app = init_app()
-    
     FlaskInstrumentor().instrument_app(app, excluded_urls="health")
 
     init_params(connection_pool, minio, scanner, args.bucket, args.untrustedFilesystemMount, args.rawFilesystemMount, args.scannerFilesystemMount, auth_private_key, auth_public_key, auth_signer_cert, auth_signer_cn, auth_public_keys, args.authAudience)

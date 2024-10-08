@@ -276,7 +276,7 @@ def handle_command(args):
         handle_submit(args)
 
 
-def init_tracer(exp=None, endpoint=None, auth_token_key=None, auth_token_val=None):
+def init_tracing(exp=None, endpoint=None, auth_token_key=None, auth_token_val=None):
     resources = {'service.name': 'docriver-client', 'service.version': '1.0.0',
                  'deployment.environment': 'development'}
     if auth_token_key:
@@ -313,7 +313,7 @@ if __name__ == '__main__':
         # print(args)
         logging.basicConfig(level=args.log)
         urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        tracer = init_tracer(args.otelTraceExp, args.otelTraceExpEndpoint,
+        tracer = init_tracing(args.otelTraceExp, args.otelTraceExpEndpoint,
                              args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
         handle_command(args)
     except Exception as e:

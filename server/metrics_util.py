@@ -19,8 +19,9 @@ def init_measurements():
     global proc_error_counter
     
     meter = metrics.get_meter('docriver-gateway')
-    meter.create_observable_gauge(callbacks=[get_cpu_usage_callback], name="cpu_percent", description="CPU Utilization", unit="1")
-    meter.create_observable_gauge(callbacks=[get_ram_usage_callback], name="ram_percent", description="RAM Usage", unit="1")
+    
+    # meter.create_observable_gauge(callbacks=[get_cpu_usage_callback], name="cpu_percent", description="CPU Utilization", unit="1")
+    # meter.create_observable_gauge(callbacks=[get_ram_usage_callback], name="ram_percent", description="RAM Usage", unit="1")
     
     requests_counter = meter.create_counter(name="requests", description="number of requests", unit="1")
     submit_size_hist = meter.create_histogram(name="submit_size_documents", description="number of documents received in a transaction", unit="1")

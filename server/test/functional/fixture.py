@@ -2,7 +2,7 @@ import os
 import pytest
 import logging
 from controller.http import init_app, init_params
-from gateway import init_db, init_obj_store, init_virus_scanner, init_authorization, init_tracer, init_metrics
+from gateway import init_db, init_obj_store, init_virus_scanner, init_authorization, init_tracing, init_metrics
 from test.functional.util import delete_obj_recursively, TEST_REALM, raw_dir, untrusted_dir, auth_keystore_path
 
 @pytest.fixture(scope="session", autouse=True)
@@ -28,7 +28,7 @@ def scanner():
 
 @pytest.fixture(scope="session", autouse=True)
 def tracer():
-    return init_tracer()
+    return init_tracing()
 
 @pytest.fixture(scope="session", autouse=True)
 def metrics():
