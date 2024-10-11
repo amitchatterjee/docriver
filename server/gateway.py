@@ -100,26 +100,18 @@ def init_metrics(exp = None, endpoint = None):
     set_meter_provider(provider)
     metrics_util.init_measurements()
 
-def init_logging(level):
-    # TODO Make configurable
-    # OTEL_LOGS_EXPORTER: "otlp"
-    # OTEL_EXPORTER_OTLP_LOGS_ENDPOINT: "http://opentel-collector:4318/v1/logs"
-    
-    '''
-    logger_provider = LoggerProvider()
-    set_logger_provider(logger_provider)
-    exporter = OTLPLogExporter(endpoint='http://opentel-collector:4318/v1/logs')
-    logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
-    otel_handler = LoggingHandler(level=level, logger_provider=logger_provider)
-    logging.getLogger().addHandler(otel_handler)
-    
-    console_handler = logging.StreamHandler()
-    console_handler.setLevel(level)
-    logging.getLogger().addHandler(console_handler)
-    '''
-        
-    LoggingInstrumentor().instrument(set_logging_format=True)
-    logging.basicConfig(level=level)
+def init_logging(level, exp=None, endpoint=None):
+    if exp == 'otlp':    
+        LoggingInstrumentor().instrument(set_logging_format=True, level=level)
+        if endpoint:
+            logger_provider = LoggerProvider()
+            set_logger_provider(logger_provider)
+            exporter = OTLPLogExporter(endpoint=endpoint)
+            logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
+            otel_handler = LoggingHandler(level=level, logger_provider=logger_provider)
+            logging.getLogger().addHandler(otel_handler)
+    else:
+        logging.basicConfig(level=level)
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -161,12 +153,14 @@ def parse_args(args):
 
     parser.add_argument("--otelTraceExp", help="Opentelemetry trace exporter. Valid values are: none, console and otlp", default=None)
     parser.add_argument("--otelTraceExpEndpoint", help="Opentelemetry trace exporter endpoint. Only required for OTLP exporter", default=None)
-
     parser.add_argument("--otelTraceAuthTokenKey", help="Opentelemetry trace auth token key name", default='auth')
     parser.add_argument("--otelTraceAuthTokenVal", help="Opentelemetry trace auth token value", default='')
 
     parser.add_argument('--otelMetricsExp', help="Opentelemetry metrics exporter. Valid values are: none, console and otlp", default=None)
     parser.add_argument("--otelMetricsExpEndpoint", help="Opentelemetry metrics exporter endpoint. Only required for OTLP exporter", default=None)
+    
+    parser.add_argument('--otelLogExp', help="Opentelemetry logs exporter. Valid values are: none and otlp", default=None)
+    parser.add_argument("--otelLogExpEndpoint", help="Opentelemetry logs exporter endpoint. Only required for OTLP exporter", default=None)
 
     args = parser.parse_args(args)
     # TODO add validation
@@ -178,7 +172,7 @@ if __name__ == '__main__':
     
     init_tracing(args.otelTraceExp, args.otelTraceExpEndpoint, args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
     
-    init_logging(args.log)
+    init_logging(args.log, args.otelLogExp, args.otelLogExpEndpoint)
     
     init_metrics(args.otelMetricsExp, args.otelMetricsExpEndpoint)
     

@@ -6,6 +6,11 @@ extensions:
     client_auth:
       username: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_HEADER}"
       password: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_VAL}"
+  basicauth/log_backend:
+    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
+    client_auth:
+      username: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_HEADER}"
+      password: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_VAL}"
 
 receivers:
   otlp:
@@ -81,6 +86,11 @@ exporters:
     endpoint: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT}"
     auth:
       authenticator: basicauth/metrics_backend
+  otlphttp/log_backend:
+    # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
+    endpoint: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT}"
+    auth:
+      authenticator: basicauth/log_backend
 
 service:
     pipelines:
@@ -95,6 +105,7 @@ service:
           # exporters: [debug]
         logs:
           receivers: [otlp]
-          processors: [batch]
-          exporters: [debug]
-    extensions: [zpages,  basicauth/metrics_backend]
+          processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
+          # exporters: [debug]
+          exporters: [otlphttp/log_backend]
+    extensions: [zpages,  basicauth/metrics_backend, basicauth/log_backend]

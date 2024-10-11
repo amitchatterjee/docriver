@@ -40,6 +40,11 @@ export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT=http://opentel-collector:${DOCRIVER
 export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_HEADER=docriver-gateway
 export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_VAL=
 
+export DOCRIVER_OTEL_LOG_EXP=none
+export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT=http://opentel-collector:${DOCRIVER_OPENTEL_HTTP_PORT}/v1/logs
+export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_HEADER=docriver-gateway
+export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_VAL=
+
 # Make changes as needed. Many of these settings will need to match with the OIDC and proxy settings. Example - 
 # OIDC/OAUTH2 settings:
 # export DOCRIVER_OIDC_CLIENTID="XXXXXX"
