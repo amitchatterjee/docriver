@@ -14,24 +14,24 @@ def get_ram_usage_callback(_: CallbackOptions):
     yield Observation(ram_percent)
 
 def init_measurements():
-    global requests_counter
-    global submit_size_hist
-    global proc_error_counter
+    global submit_reqs_hist
+    global submit_docs_hist
+    global submit_error_hist
     
     meter = metrics.get_meter('docriver-gateway')
     
     # meter.create_observable_gauge(callbacks=[get_cpu_usage_callback], name="cpu_percent", description="CPU Utilization", unit="1")
     # meter.create_observable_gauge(callbacks=[get_ram_usage_callback], name="ram_percent", description="RAM Usage", unit="1")
     
-    requests_counter = meter.create_counter(name="requests", description="number of requests", unit="1")
-    submit_size_hist = meter.create_histogram(name="submit_size_documents", description="number of documents received in a transaction", unit="1")
-    proc_error_counter = meter.create_histogram(name="proc_error", description="processing_errors", unit="1")
+    submit_reqs_hist = meter.create_histogram(name="drg_sub_reqs", description="number of submit requests", unit="1")
+    submit_docs_hist = meter.create_histogram(name="drg_sub_docs", description="number of documents submitted in a transaction", unit="1")
+    submit_error_hist = meter.create_histogram(name="drg_sub_errs", description="number of errors processing submit requests", unit="1")
     
-def increment_requests(attributes = {}):
-   requests_counter.add(1, attributes)
+def increment_submit_requests(attributes = {}):
+   submit_reqs_hist.record(1, attributes)
    
 def record_submit_size(size, attributes={}):
-    submit_size_hist.record(size, attributes)
+    submit_docs_hist.record(size, attributes)
     
-def increment_errors(attributes = {}):
-   proc_error_counter.record(1, attributes)
+def increment_submit_errors(attributes = {}):
+   submit_error_hist.record(1, attributes)

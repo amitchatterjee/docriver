@@ -3,12 +3,6 @@ extensions:
   zpages:
     endpoint: 0.0.0.0:55679
 
-  basicauth/trace_backend:
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
-    client_auth:
-      username: "${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER}"
-      password: "${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL}"
-
   basicauth/metrics_backend:
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
     client_auth:
@@ -28,14 +22,13 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
-# Make sure you adjust the pipeline when you uncomment this
-#  prometheus:
-#    config:
-#      scrape_configs:
-#      - job_name: 'otel-collector'
-#        scrape_interval: 30s
-#        static_configs:
-#        - targets: ['cadvisor:8080']
+  prometheus:
+    config:
+      scrape_configs:
+      - job_name: 'otel-collector'
+        scrape_interval: 30s
+        static_configs:
+        - targets: ['cadvisor:8080']
 
 processors:
   batch:
@@ -69,17 +62,6 @@ processors:
           - delete_key(attributes, "process.runtime.description")
           - delete_key(attributes, "process.runtime.name")
           - delete_key(attributes, "process.runtime.version")
-    log_statements:
-      - context: resource
-        statements:
-          - delete_key(attributes, "os.description")
-          - delete_key(attributes, "os.type")
-          - delete_key(attributes, "process.command_args")
-          - delete_key(attributes, "process.executable.path")
-          - delete_key(attributes, "process.pid")
-          - delete_key(attributes, "process.runtime.description")
-          - delete_key(attributes, "process.runtime.name")
-          - delete_key(attributes, "process.runtime.version")
   transform/add_resource_attributes_as_metric_attributes:
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/processor/transformprocessor
     error_mode: ignore
@@ -98,10 +80,11 @@ exporters:
   debug:
     verbosity: normal
 
-  otlphttp/trace_backend:
+  otlp/trace_backend:
     endpoint: ${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT}
-    auth:
-      authenticator: basicauth/trace_backend
+    headers:
+      # TODO - this is not working, probably because we are using gRPC?? The current workaround is to set these values in application attributes
+      Authorization: ${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL}
 
   otlphttp/metrics_backend:
     # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
@@ -120,10 +103,9 @@ service:
         traces:
           receivers: [otlp]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
-          exporters: [otlphttp/trace_backend]
+          exporters: [otlp/trace_backend]
         metrics:
-          # receivers: [otlp, prometheus]
-          receivers: [otlp]
+          receivers: [otlp, prometheus]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, transform/add_resource_attributes_as_metric_attributes, batch]
           exporters: [otlphttp/metrics_backend]
           # exporters: [debug]
@@ -132,4 +114,4 @@ service:
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
           # exporters: [debug]
           exporters: [otlphttp/log_backend]
-    extensions: [zpages,  basicauth/metrics_backend, basicauth/log_backend, basicauth/trace_backend]
+    extensions: [zpages,  basicauth/metrics_backend, basicauth/log_backend]

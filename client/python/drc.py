@@ -16,6 +16,7 @@ from urllib.parse import quote
 import urllib3
 import base64
 import shutil
+import paramiko
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
@@ -49,6 +50,7 @@ def parse_toplevel_args():
     parser.add_argument("--realm", required=True,
                         help="Realm to submit document to")
     parser.add_argument('--noverify', action='store_true')
+    
     parser.add_argument(
         "--log", help="log level (valid values are DEBUG, INFO, WARN, ERROR, NONE", default='WARN')
     parser.add_argument('--debug', action='store_true')
@@ -148,7 +150,7 @@ def parse_submit_args(global_args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source", help="Full path name of the source location. Maybe a file or a directory", required=True)
-    supported_methods = ['inline', 'upload', 'copy']
+    supported_methods = ['inline', 'upload', 'copy', 'scp']
     parser.add_argument("--method", choices=supported_methods,
                         default='upload', help="Method by which the files are submitted")
     parser.add_argument("--prefix", default='',
@@ -165,6 +167,12 @@ def parse_submit_args(global_args):
     parser.add_argument("--replacesDocument",
                         help="The ID of the document that this document replaces")
     parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading")
+    parser.add_argument("--scpHost", default='locahost', help="Remote host name. The applications can upload the files using sftp/scp to this host and specify the location instead of uploading")
+    parser.add_argument("--scpUser", help="Remote user name")
+    parser.add_argument("--scpPassword", default='', help="Password for the user")
+    parser.add_argument("--scpPath", default='./', help="Base path on the remote server where the file will be copied to")
+    parser.add_argument('--args.autoAddHostKey', action='store_true')
+    
     return parser.parse_args(global_args.args)
 
 def file_to_base64(file_path):
@@ -192,6 +200,7 @@ def handle_submit(global_args):
     raiseif(args.resourceId and not args.resourceType, 'If resourceId is specified, resourceType must also be specified')
     raiseif(len(files) > 1 and args.replacesDocument, "replacesDocument option is only supported when submitting a single document")
     raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
+    raiseif(args.method == 'scp' and not args.scpUser, 'When the method is "scp", the scpUser option must be specified')
 
     # Create a manifest and save to a temporary location
     manifest = {'tx': f"{str(uuid.uuid4())}", 'documents': []}
@@ -233,7 +242,17 @@ def handle_submit(global_args):
         to = f"{args.rawFilesystemMount}/{global_args.realm}"
         os.makedirs(to, exist_ok=True)
         for file in files:
-            shutil.copy(os.path.join(basedir, file), to) 
+            shutil.copy(os.path.join(basedir, file), to)
+    elif args.method == 'scp':
+        with paramiko.SSHClient() as remote_client:
+            if not args.autoAddHostKey:
+                remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassowrd)
+            to = f"{args.scpPath}/{global_args.realm}"
+            with remote_client.open_sftp() as ftp_session:
+                for file in files:
+                    ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
+            # ftp_client.close()
 
     # Setup auth token
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
@@ -277,8 +296,9 @@ def handle_command(args):
 
 
 def init_tracing(exp=None, endpoint=None, auth_token_key=None, auth_token_val=None):
+    # TODO pass these from environment variables
     resources = {'service.name': 'docriver-client', 'service.version': '1.0.0',
-                 'deployment.environment': 'development'}
+                 'deployment.environment': 'staging'}
     if auth_token_key:
         resources[auth_token_key] = auth_token_val
 

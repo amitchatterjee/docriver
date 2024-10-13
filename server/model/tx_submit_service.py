@@ -24,7 +24,7 @@ from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_submit
 from trace_util import new_span
-from metrics_util import increment_requests, increment_errors, record_submit_size
+from metrics_util import increment_submit_requests, increment_submit_errors, record_submit_size
 
 def get_payload_from_form(realm, request):
     for field in request.files.keys():
@@ -326,12 +326,12 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         
         connection.commit()
         span.set_attributes({'numDocuments': len(payload['documents']), 'txKey': payload['dr:txId']})
-        increment_requests(metrics_attribs)
+        increment_submit_requests(metrics_attribs)
         record_submit_size(len(payload['documents']), metrics_attribs)
         return result
     except Exception as e:
         metrics_attribs['exception'] = str(e)
-        increment_errors(metrics_attribs)
+        increment_submit_errors(metrics_attribs)
         connection.rollback()
         raise e
     finally:

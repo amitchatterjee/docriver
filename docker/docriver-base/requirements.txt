@@ -20,3 +20,4 @@ opentelemetry-instrumentation-mysql
 opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-logging
 psutil
+paramiko
