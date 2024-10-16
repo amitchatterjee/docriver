@@ -27,7 +27,7 @@ export DOCRIVER_OPENTEL_UX_PORT=55679
 # Change the following environment variable to "otlp" if you want to use the opentelemetry collector. You can also set the value to "console" to view the traces on console. Note that when using "otlp", the observer docker processes must be started - see below
 export DOCRIVER_OTEL_TRACE_EXP=none
 
-# These parameters are used by the collector to export the traces. They must be set when using the observer
+# These parameters are used by the collector to export the traces.
 export DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT=http://opentel-collector:${DOCRIVER_OPENTEL_HTTP_PORT}/v1/traces
 export DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER=
 export DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL=
@@ -40,7 +40,11 @@ export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT=http://opentel-collector:${DOCRIVER
 export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_HEADER=docriver-gateway
 export DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_VAL=
 
-export DOCRIVER_OTEL_LOG_EXP=none
+
+# Change the following environment variable to --otelLogInstrument  if you want to instrument the logs opentelemetry trace information.
+export DOCRIVER_OTEL_LOG_INSTRUMENT=--no-otelLogInstrument
+
+# These parameters are used by the collector to export the traces. They must be set when using the observer
 export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT=http://opentel-collector:${DOCRIVER_OPENTEL_HTTP_PORT}/v1/logs
 export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_HEADER=docriver-gateway
 export DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_VAL=

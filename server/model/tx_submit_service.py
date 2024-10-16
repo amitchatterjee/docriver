@@ -24,7 +24,7 @@ from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_submit
 from trace_util import new_span
-from metrics_util import increment_submit_requests, increment_submit_errors, record_submit_size
+from metrics_util import increment_submit_requests, increment_submit_errors, record_submit_doc_count, record_submit_files_bytes
 
 def get_payload_from_form(realm, request):
     for field in request.files.keys():
@@ -194,11 +194,13 @@ def format_doc_key(payload, document):
 def write_to_obj_store(principal, minio, bucket, payload):
     with new_span("write_to_objstore") as span:
         documents = payload['documents']
+        file_size = 0
         for document in documents: 
             if 'dr:stageFilename' in document:
                 with new_span("write_obj_to_store", kind=SpanKind.CLIENT, 
                               attributes={'document': document['document'], 
                                           'db.name': bucket, 'db.system': 'minio'}) as doc_span:
+                    file_size = file_size + os.stat(document['dr:stageFilename']).st_size
                     # TODO add more dr:tags to store document, etc.
                     # TODO the code below is not transactional. That means if a file put fails, the minio storage will be in a messed up state. We can perform cleanups since we have the references in the metadata store. A better way to do this is to tar the files and have minio extract it - https://blog.min.io/minio-optimizes-small-objects/
                     with io.FileIO(document['dr:stageFilename']) as stream:
@@ -206,6 +208,7 @@ def write_to_obj_store(principal, minio, bucket, payload):
                                 document['content']['mimeType'],
                                 document['tags'] if 'tags' in document else None,
                                 document['properties'] if 'properties' in document else None)
+        payload['dr:fileSize'] = file_size
 
 def write_metadata(principal, connection, bucket, payload):
     with new_span("write_metadata") as span:
@@ -327,7 +330,8 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
         connection.commit()
         span.set_attributes({'numDocuments': len(payload['documents']), 'txKey': payload['dr:txId']})
         increment_submit_requests(metrics_attribs)
-        record_submit_size(len(payload['documents']), metrics_attribs)
+        record_submit_doc_count(len(payload['documents']), metrics_attribs)
+        record_submit_files_bytes(payload['dr:fileSize'], metrics_attribs)
         return result
     except Exception as e:
         metrics_attribs['exception'] = str(e)

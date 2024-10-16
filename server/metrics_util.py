@@ -17,6 +17,7 @@ def init_measurements():
     global submit_reqs_hist
     global submit_docs_hist
     global submit_error_hist
+    global submit_bytes_hist
     
     meter = metrics.get_meter('docriver-gateway')
     
@@ -25,13 +26,17 @@ def init_measurements():
     
     submit_reqs_hist = meter.create_histogram(name="drg_sub_reqs", description="number of submit requests", unit="1")
     submit_docs_hist = meter.create_histogram(name="drg_sub_docs", description="number of documents submitted in a transaction", unit="1")
+    submit_bytes_hist = meter.create_histogram(name="drg_sub_bytes", description="size of files submitted in a transaction", unit="byte")
     submit_error_hist = meter.create_histogram(name="drg_sub_errs", description="number of errors processing submit requests", unit="1")
     
 def increment_submit_requests(attributes = {}):
    submit_reqs_hist.record(1, attributes)
    
-def record_submit_size(size, attributes={}):
+def record_submit_doc_count(size, attributes={}):
     submit_docs_hist.record(size, attributes)
+    
+def record_submit_files_bytes(size, attributes={}):
+    submit_bytes_hist.record(size, attributes)
     
 def increment_submit_errors(attributes = {}):
    submit_error_hist.record(1, attributes)

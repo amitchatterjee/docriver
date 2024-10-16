@@ -3,18 +3,6 @@ extensions:
   zpages:
     endpoint: 0.0.0.0:55679
 
-  basicauth/metrics_backend:
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
-    client_auth:
-      username: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_HEADER}"
-      password: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT_AUTH_VAL}"
-
-  basicauth/log_backend:
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/extension/basicauthextension
-    client_auth:
-      username: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_HEADER}"
-      password: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT_AUTH_VAL}"
-
 receivers:
   otlp:
     protocols:
@@ -22,13 +10,6 @@ receivers:
         endpoint: 0.0.0.0:4317
       http:
         endpoint: 0.0.0.0:4318
-  prometheus:
-    config:
-      scrape_configs:
-      - job_name: 'otel-collector'
-        scrape_interval: 30s
-        static_configs:
-        - targets: ['cadvisor:8080']
 
 processors:
   batch:
@@ -71,11 +52,6 @@ processors:
           - set(attributes["deployment.environment"], resource.attributes["deployment.environment"])
           - set(attributes["service.version"], resource.attributes["service.version"])
 
-connectors:
-  grafanacloud:
-    # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/grafanacloudconnector
-    host_identifiers: ["host.name"]
-
 exporters:
   debug:
     verbosity: normal
@@ -86,18 +62,6 @@ exporters:
       # TODO - this is not working, probably because we are using gRPC?? The current workaround is to set these values in application attributes
       Authorization: ${env:DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL}
 
-  otlphttp/metrics_backend:
-    # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
-    endpoint: "${env:DOCRIVER_OTEL_METRICS_EXPORT_ENDPOINT}"
-    auth:
-      authenticator: basicauth/metrics_backend
-
-  otlphttp/log_backend:
-    # https://github.com/open-telemetry/opentelemetry-collector/tree/main/exporter/otlphttpexporter
-    endpoint: "${env:DOCRIVER_OTEL_LOG_EXPORT_ENDPOINT}"
-    auth:
-      authenticator: basicauth/log_backend
-
 service:
     pipelines:
         traces:
@@ -107,11 +71,9 @@ service:
         metrics:
           receivers: [otlp, prometheus]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, transform/add_resource_attributes_as_metric_attributes, batch]
-          exporters: [otlphttp/metrics_backend]
-          # exporters: [debug]
+          exporters: [debug]
         logs:
           receivers: [otlp]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
-          # exporters: [debug]
-          exporters: [otlphttp/log_backend]
-    extensions: [zpages,  basicauth/metrics_backend, basicauth/log_backend]
+          exporters: [debug]
+    extensions: [zpages]

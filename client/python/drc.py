@@ -24,6 +24,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExpor
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.trace import Status, StatusCode
 
 sys.path.append(os.path.abspath(os.path.join(
     os.getenv('DOCRIVER_GW_HOME'), 'server')))
@@ -182,118 +183,120 @@ def file_to_base64(file_path):
         return base64_encoded.decode('utf-8')
 
 def handle_submit(global_args):
-    files = []
-    info = []
-    args = parse_submit_args(global_args)
-    if not os.path.exists(args.source):
-        raise Exception("Source path does not exist")
-    basedir = None
-    if os.path.isdir(args.source):
-        basedir = args.source
-        files = [f for f in os.listdir(basedir) if not os.path.isdir(
-            os.path.join(basedir, f)) and re.match(args.filter, f)]
-    else:
-        basedir, file = os.path.split(args.source)
-        files.append(file)
-        
-    # Validate args
-    raiseif(args.resourceId and not args.resourceType, 'If resourceId is specified, resourceType must also be specified')
-    raiseif(len(files) > 1 and args.replacesDocument, "replacesDocument option is only supported when submitting a single document")
-    raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
-    raiseif(args.method == 'scp' and not args.scpUser, 'When the method is "scp", the scpUser option must be specified')
-
-    # Create a manifest and save to a temporary location
-    manifest = {'tx': f"{str(uuid.uuid4())}", 'documents': []}
-    if args.resourceId:
-        references = [{'resourceId': args.resourceId}]
-        references[0]['resourceType'] = args.resourceType
-        if args.resourceDescription:
-            references[0]['resourceDescription'] = args.resourceDescription
-        manifest['references'] = references
-
-    for file in files:
-        index = file.rfind('.')
-        # fname = file[:index]
-        ext = file[index+1:]
-        content = {}
-        if args.method == 'inline':
-            mime = mimetypes.guess_type(file)[0]
-            content['mimeType'] = mime
-            content['encoding'] = 'base64'
-            content['inline'] = file_to_base64(os.path.join(basedir, file))
+    with tracer.start_as_current_span('submit', attributes={'realm': global_args.realm}) as span:
+        files = []
+        info = []
+        args = parse_submit_args(global_args)
+        if not os.path.exists(args.source):
+            raise Exception("Source path does not exist")
+        basedir = None
+        if os.path.isdir(args.source):
+            basedir = args.source
+            files = [f for f in os.listdir(basedir) if not os.path.isdir(
+                os.path.join(basedir, f)) and re.match(args.filter, f)]
         else:
-            content['path'] = file
-        doc = {'document': f"{args.prefix}{file}-{int(time.time())}",
-                'type': args.documentType if args.documentType else ext,
-                'content': content,
-                'properties': {'filename': file}}
-        if args.replacesDocument:
-            doc['replaces'] = args.replacesDocument
-        manifest['documents'].append(doc)
+            basedir, file = os.path.split(args.source)
+            files.append(file)
+            
+        # Validate args
+        raiseif(args.resourceId and not args.resourceType, 'If resourceId is specified, resourceType must also be specified')
+        raiseif(len(files) > 1 and args.replacesDocument, "replacesDocument option is only supported when submitting a single document")
+        raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
+        raiseif(args.method == 'scp' and not args.scpUser, 'When the method is "scp", the scpUser option must be specified')
 
-    manifest_path = None
-    with tempfile.NamedTemporaryFile(mode='w+t', delete=False, suffix='.json', prefix='manifest-') as tmpfile:
-        tmpfile.write(json.dumps(manifest))
-        manifest_path = tmpfile.name
-    info.append({'manifest': manifest_path})
+        # Create a manifest and save to a temporary location
+        manifest = {'tx': f"{str(uuid.uuid4())}", 'documents': []}
+        if args.resourceId:
+            references = [{'resourceId': args.resourceId}]
+            references[0]['resourceType'] = args.resourceType
+            if args.resourceDescription:
+                references[0]['resourceDescription'] = args.resourceDescription
+            manifest['references'] = references
 
-    if args.method == 'copy':
-        # copy the files
-        to = f"{args.rawFilesystemMount}/{global_args.realm}"
-        os.makedirs(to, exist_ok=True)
         for file in files:
-            shutil.copy(os.path.join(basedir, file), to)
-    elif args.method == 'scp':
-        with paramiko.SSHClient() as remote_client:
-            if not args.autoAddHostKey:
-                remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-            remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassowrd)
-            to = f"{args.scpPath}/{global_args.realm}"
-            with remote_client.open_sftp() as ftp_session:
-                for file in files:
-                    ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
-            # ftp_client.close()
+            index = file.rfind('.')
+            # fname = file[:index]
+            ext = file[index+1:]
+            content = {}
+            if args.method == 'inline':
+                mime = mimetypes.guess_type(file)[0]
+                content['mimeType'] = mime
+                content['encoding'] = 'base64'
+                content['inline'] = file_to_base64(os.path.join(basedir, file))
+            else:
+                content['path'] = file
+            doc = {'document': f"{args.prefix}{file}-{int(time.time())}",
+                    'type': args.documentType if args.documentType else ext,
+                    'content': content,
+                    'properties': {'filename': file}}
+            if args.replacesDocument:
+                doc['replaces'] = args.replacesDocument
+            manifest['documents'].append(doc)
 
-    # Setup auth token
-    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-        global_args.keystore, global_args.keystorePassword)
-    requested_grants = {'txType': 'submit', 'documentCount': len(files)}
-    if args.resourceId:
-        requested_grants['resourceId'] = args.resourceId
-        requested_grants['resourceType'] = args.resourceType
-    encoded, payload = issue(private_key, signer_cn, global_args.subject,
-                             global_args.audience, 60,  global_args.resource, requested_grants)
+        manifest_path = None
+        with tempfile.NamedTemporaryFile(mode='w+t', delete=False, suffix='.json', prefix='manifest-') as tmpfile:
+            tmpfile.write(json.dumps(manifest))
+            manifest_path = tmpfile.name
+        info.append({'manifest': manifest_path})
 
-    response_json = None
-    # Send the request
-    if args.method == 'upload':
-        # Create form data upload list
-        form_files = [('files', ('manifest.json', open(
-            manifest_path, 'r'), 'application/json'))]
-        for file in files:
-            mime = mimetypes.guess_type(file)[0]
-            form_files.append(
-                ('files', (file, open(os.path.join(basedir, file), 'rb'), mime)))
-        with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
-                        headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
-            response.raise_for_status()
-            response_json = response.json()
-    else:
-        with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
-                        json=manifest,
-                        headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json', 'Content-Type': 'application/json'}, verify=not global_args.noverify) as response:
-            response.raise_for_status()
-            response_json = response.json()
-    
-    response_json['info'] = info
-    print(json.dumps(response_json, indent=2))
+        if args.method == 'copy':
+            # copy the files
+            to = f"{args.rawFilesystemMount}/{global_args.realm}"
+            os.makedirs(to, exist_ok=True)
+            for file in files:
+                shutil.copy(os.path.join(basedir, file), to)
+        elif args.method == 'scp':
+            with paramiko.SSHClient() as remote_client:
+                if not args.autoAddHostKey:
+                    remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassowrd)
+                to = f"{args.scpPath}/{global_args.realm}"
+                with remote_client.open_sftp() as ftp_session:
+                    for file in files:
+                        ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
+                # ftp_client.close()
+
+        # Setup auth token
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
+            global_args.keystore, global_args.keystorePassword)
+        requested_grants = {'txType': 'submit', 'documentCount': len(files)}
+        if args.resourceId:
+            requested_grants['resourceId'] = args.resourceId
+            requested_grants['resourceType'] = args.resourceType
+        encoded, payload = issue(private_key, signer_cn, global_args.subject,
+                                global_args.audience, 60,  global_args.resource, requested_grants)
+
+        response_json = None
+        # Send the request
+        if args.method == 'upload':
+            # Create form data upload list
+            form_files = [('files', ('manifest.json', open(
+                manifest_path, 'r'), 'application/json'))]
+            for file in files:
+                mime = mimetypes.guess_type(file)[0]
+                form_files.append(
+                    ('files', (file, open(os.path.join(basedir, file), 'rb'), mime)))
+            with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
+                            headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
+                response.raise_for_status()
+                response_json = response.json()
+        else:
+            with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
+                            json=manifest,
+                            headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json', 'Content-Type': 'application/json'}, verify=not global_args.noverify) as response:
+                response.raise_for_status()
+                response_json = response.json()
+        
+        response_json['info'] = info
+        print(json.dumps(response_json, indent=2))
+        span.set_attributes({'txKey': response_json['dr:txId'], 'tx': response_json['tx']})
+        span.set_status(Status(StatusCode.OK))
 
 def handle_command(args):
     if args.command == 'get':
         handle_get(args)
     elif args.command == 'submit':
         handle_submit(args)
-
 
 def init_tracing(exp=None, endpoint=None, auth_token_key=None, auth_token_val=None):
     # TODO pass these from environment variables

@@ -28,7 +28,7 @@ from opentelemetry._logs import set_logger_provider
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.exporter.otlp.proto.http._log_exporter import OTLPLogExporter
 from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
-from opentelemetry.sdk._logs.export import BatchLogRecordProcessor, SimpleLogRecordProcessor
+from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
@@ -60,18 +60,13 @@ def init_authorization(keystore, password):
     return get_entries(keystore, password)
 
 def init_tracing(exp = None, endpoint = None, auth_token_key=None, auth_token_val=None):
-    resources = {'service.instance.id': socket.gethostname()}
-    if auth_token_key:
-        resources[auth_token_key] = auth_token_val
-        
-    resource = Resource.create(resources)    
-    
+    resource = init_resource(auth_token_key, auth_token_val)  
     provider = TracerProvider(resource=resource)
     if exp == 'console':
         processor = BatchSpanProcessor(ConsoleSpanExporter())
         provider.add_span_processor(processor)
     elif exp == 'otlp':
-        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=endpoint))
+        processor = BatchSpanProcessor(OTLPSpanExporter(endpoint=f"{endpoint}/v1/traces"))
         provider.add_span_processor(processor)
     else:
         logging.getLogger().info("Tracer is not enabled")
@@ -83,35 +78,43 @@ def init_tracing(exp = None, endpoint = None, auth_token_key=None, auth_token_va
     tracer = trace.get_tracer("docriver-gateway")
     return tracer
 
-def init_metrics(exp = None, endpoint = None):
+def init_metrics(exp = None, endpoint = None, auth_token_key=None, auth_token_val=None):
     readers=[]
     if exp == 'console':
         exporter = ConsoleMetricExporter()
         readers.append(PeriodicExportingMetricReader(exporter, export_interval_millis=10000))
     elif exp == 'otlp':
-        exporter = OTLPMetricExporter(endpoint=endpoint)
+        exporter = OTLPMetricExporter(endpoint=f"{endpoint}/v1/metrics")
         readers.append(PeriodicExportingMetricReader(exporter))
     else:
         logging.getLogger().warning("Metrics is not enabled")
         
-    resources = {'service.instance.id': socket.gethostname()}
-    resource = Resource.create(resources)        
+    resource = init_resource(auth_token_key, auth_token_val)
     provider = MeterProvider(resource = resource, metric_readers=readers)
     set_meter_provider(provider)
     metrics_util.init_measurements()
 
-def init_logging(level, exp=None, endpoint=None):
-    if exp == 'otlp':    
+def init_logging(level, instrument=False, endpoint=None, auth_token_key=None, auth_token_val=None):
+    if instrument:    
         LoggingInstrumentor().instrument(set_logging_format=True, level=level)
+        
         if endpoint:
-            logger_provider = LoggerProvider()
+            resource = init_resource(auth_token_key, auth_token_val)
+            logger_provider = LoggerProvider(resource=resource)
             set_logger_provider(logger_provider)
-            exporter = OTLPLogExporter(endpoint=endpoint)
+            exporter = OTLPLogExporter(endpoint=f"{endpoint}/v1/logs")
             logger_provider.add_log_record_processor(BatchLogRecordProcessor(exporter))
             otel_handler = LoggingHandler(level=level, logger_provider=logger_provider)
             logging.getLogger().addHandler(otel_handler)
     else:
         logging.basicConfig(level=level)
+
+def init_resource(auth_token_key, auth_token_val):
+    resources = {'service.instance.id': socket.gethostname()}
+    if auth_token_key:
+        resources[auth_token_key] = auth_token_val
+    resource = Resource.create(resources)
+    return resource
 
 def parse_args(args):
     parser = argparse.ArgumentParser()
@@ -152,15 +155,12 @@ def parse_args(args):
     parser.add_argument('--debug', action='store_true')
 
     parser.add_argument("--otelTraceExp", help="Opentelemetry trace exporter. Valid values are: none, console and otlp", default=None)
-    parser.add_argument("--otelTraceExpEndpoint", help="Opentelemetry trace exporter endpoint. Only required for OTLP exporter", default=None)
-    parser.add_argument("--otelTraceAuthTokenKey", help="Opentelemetry trace auth token key name", default='auth')
-    parser.add_argument("--otelTraceAuthTokenVal", help="Opentelemetry trace auth token value", default='')
-
-    parser.add_argument('--otelMetricsExp', help="Opentelemetry metrics exporter. Valid values are: none, console and otlp", default=None)
-    parser.add_argument("--otelMetricsExpEndpoint", help="Opentelemetry metrics exporter endpoint. Only required for OTLP exporter", default=None)
+    parser.add_argument('--otelMetricsExp', help="Opentelemetry metrics exporter. Valid values are: none, console and otlp", default=None)    
+    parser.add_argument('--otelLogInstrument', help="Instrument logs with opentel trace attributes", action=argparse.BooleanOptionalAction)
     
-    parser.add_argument('--otelLogExp', help="Opentelemetry logs exporter. Valid values are: none and otlp", default=None)
-    parser.add_argument("--otelLogExpEndpoint", help="Opentelemetry logs exporter endpoint. Only required for OTLP exporter", default=None)
+    parser.add_argument("--otelExpEndpoint", help="Opentelemetry collector endpoint. Only required if OTLP export is enabled", default=None)
+    parser.add_argument("--otelBackendAuthTokenKey", help="Opentelemetry auth token key name. This is only needed for certain backends")
+    parser.add_argument("--otelBackendAuthTokenVal", help="Opentelemetry trace auth token value")
 
     args = parser.parse_args(args)
     # TODO add validation
@@ -170,11 +170,11 @@ def parse_args(args):
 if __name__ == '__main__':
     args = parse_args(sys.argv[1:])
     
-    init_tracing(args.otelTraceExp, args.otelTraceExpEndpoint, args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
+    init_tracing(args.otelTraceExp, args.otelExpEndpoint, args.otelBackendAuthTokenKey, args.otelBackendAuthTokenKey)
     
-    init_logging(args.log, args.otelLogExp, args.otelLogExpEndpoint)
+    init_logging(args.log, args.otelLogInstrument, args.otelExpEndpoint, args.otelBackendAuthTokenKey, args.otelBackendAuthTokenKey)
     
-    init_metrics(args.otelMetricsExp, args.otelMetricsExpEndpoint)
+    init_metrics(args.otelMetricsExp, args.otelExpEndpoint, args.otelBackendAuthTokenKey, args.otelBackendAuthTokenKey)
     
     connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
     

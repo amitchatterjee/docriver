@@ -93,6 +93,7 @@ connectors:
   grafanacloud:
     # https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/connector/grafanacloudconnector
     host_identifiers: ["host.name"]
+    metrics_flush_interval: 60s
 
 exporters:
   debug:
@@ -120,13 +121,17 @@ service:
         traces:
           receivers: [otlp]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
-          exporters: [otlphttp/trace_backend]
+          exporters: [otlphttp/trace_backend, grafanacloud]
         metrics:
           # receivers: [otlp, prometheus]
           receivers: [otlp]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, transform/add_resource_attributes_as_metric_attributes, batch]
           exporters: [otlphttp/metrics_backend]
           # exporters: [debug]
+        metrics/grafanacloud:
+          receivers: [grafanacloud]
+          processors: [batch]
+          exporters: [otlphttp/metrics_backend]
         logs:
           receivers: [otlp]
           processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
