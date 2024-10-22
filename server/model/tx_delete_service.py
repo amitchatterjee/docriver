@@ -1,12 +1,12 @@
 import logging
 from opentelemetry import trace
-from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 from dao.tx import create_tx, create_tx_event
 from dao.document import get_doc_by_name, create_doc_event
 from exceptions import ValidationException
 from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_delete
+from trace_util import instrumented_connection
 
 def delete_docs_tx(token, realm, payload, connection_pool, public_keys, audience):
     span = trace.get_current_span()
@@ -20,7 +20,7 @@ def delete_docs_tx(token, realm, payload, connection_pool, public_keys, audience
     logging.info("Received deletion request: {}/{}. Principal: {}".format(payload['dr:realm'], payload['tx'], payload['dr:principal']))
     span.set_attributes({'principal': payload['dr:principal'], 'tx': payload['tx'],  'tx': payload['tx']})
 
-    connection = MySQLInstrumentor().instrument_connection(connection_pool.get_connection())
+    connection = instrumented_connection(connection_pool.get_connection())
     cursor = None
     try:
         cursor = connection.cursor()

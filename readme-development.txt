@@ -137,6 +137,9 @@ $DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C123456
 # Ingestion from raw file mount using the drc client - recommended
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method copy --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --rawFilesystemMount $HOME/storage/docriver/raw
 
+# Ingestion using scp using the drc client - change the XXX, YYY, HHHH, etc.
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method scp --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --scpUser XXX --scpPassword YYYY --scpHost HHHH --autoAddHostKey --scpPath ~/storage/docriver/raw
+
 # Multipart form file ingestion - deprecated
 $DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/"
 

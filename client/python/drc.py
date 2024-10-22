@@ -18,6 +18,8 @@ import base64
 import shutil
 import paramiko
 
+from contextlib import contextmanager
+
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
@@ -33,6 +35,20 @@ from auth.token import issue
 from auth.keystore import get_entries
 
 tracer = None
+
+@contextmanager
+def new_span(name, **kwargs):
+    with tracer.start_as_current_span(name, **kwargs) as span:
+        try:
+            yield span
+            span.set_status(Status(StatusCode.OK))
+        except Exception as e:
+            span.set_status(Status(StatusCode.ERROR))
+            span.record_exception(e)
+            raise e
+
+def to_json(dict):
+    return json.dumps(dict, indent=2)
 
 def parse_toplevel_args():
     parser = argparse.ArgumentParser()
@@ -95,25 +111,35 @@ def handle_get(global_args):
 
 
 def handle_get_doc(global_args, args):
-    args = parse_get_doc(args)
-    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-        global_args.keystore, global_args.keystorePassword)
-    # TODO change to narrower permissions
-    encoded, payload = issue(private_key, signer_cn, global_args.subject, global_args.audience,
-                             60,  global_args.resource, {'txType': 'get-document', 'document': '.*'})
+    with new_span('get_doc', attributes={'realm': global_args.realm}) as span:
+        args = parse_get_doc(args)
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
+            global_args.keystore, global_args.keystorePassword)
+        # TODO change to narrower permissions
+        encoded, payload = issue(private_key, signer_cn, global_args.subject, global_args.audience,
+                                    60,  global_args.resource, {'txType': 'get-document', 'document': '.*'})
 
-    with requests.get(f"{global_args.docriverUrl}/document/{global_args.realm}/{quote(args.name)}",
-                      headers={'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify, stream=True) as response:
-        response.raise_for_status()
-        with open(args.output, 'wb') as file:
-            for chunk in response.iter_content(chunk_size=8192):
-                file.write(chunk)
-        print(json.dumps({'status': 'OK', 'path': args.output}, indent=2))
+        with requests.get(f"{global_args.docriverUrl}/document/{global_args.realm}/{quote(args.name)}",
+                            headers={'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify, stream=True) as response:
+            response.raise_for_status()
+            
+            output_file = args.output
+            if os.path.isdir(args.output):
+                content_type = response.headers.get("Content-Type")
+                extension = mimetypes.guess_extension(content_type)
+                if not extension:
+                    raise Exception("Cannot determine file extension. You must specify a full path name in the --output option")
+                output_file = f"{args.output}/{str(uuid.uuid4())}{extension}"
+                
+            with open(output_file, 'wb') as file:
+                for chunk in response.iter_content(chunk_size=8192):
+                    file.write(chunk)
+            print(to_json({'status': 'OK', 'path': output_file}))
 
 
 def parse_get_doc(args):
     parser = argparse.ArgumentParser()
-    parser.add_argument("--output", help="Output path", required=True)
+    parser.add_argument("--output", help="Output path", default='/tmp')
     parser.add_argument("--name", help="Document name", required=True)
     args = parser.parse_args(args.args)
     return args
@@ -129,22 +155,22 @@ def parse_get_events(args):
 
 
 def handle_get_events(global_args, args):
-    args = parse_get_events(args)
-    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-        global_args.keystore, global_args.keystorePassword)
-    # TODO change to narrower permissions
-    encoded, payload = issue(private_key, signer_cn, global_args.subject,
-                             global_args.audience, 60,  global_args.resource, {'txType': 'get-events'})
-
-    params = {}
-    if args.fromTime:
-        params['from'] = args.fromTime
-    if args.toTime:
-        params['to'] = args.toTime
-    with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json', 'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify) as response:
-        response.raise_for_status()
-        json_response = response.json()
-        print(json.dumps(json_response, indent=2))
+    with new_span('get_events', attributes={'realm': global_args.realm}) as span:
+        args = parse_get_events(args)
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
+            global_args.keystore, global_args.keystorePassword)
+        # TODO change to narrower permissions
+        encoded, payload = issue(private_key, signer_cn, global_args.subject,
+                                global_args.audience, 60,  global_args.resource, {'txType': 'get-events'})
+        params = {}
+        if args.fromTime:
+            params['from'] = args.fromTime
+        if args.toTime:
+            params['to'] = args.toTime
+        with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json', 'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify) as response:
+            response.raise_for_status()
+            json_response = response.json()
+            print(to_json(json_response))
 
 
 def parse_submit_args(global_args):
@@ -172,7 +198,7 @@ def parse_submit_args(global_args):
     parser.add_argument("--scpUser", help="Remote user name")
     parser.add_argument("--scpPassword", default='', help="Password for the user")
     parser.add_argument("--scpPath", default='./', help="Base path on the remote server where the file will be copied to")
-    parser.add_argument('--args.autoAddHostKey', action='store_true')
+    parser.add_argument('--autoAddHostKey', help="Auto-add host key", action=argparse.BooleanOptionalAction)
     
     return parser.parse_args(global_args.args)
 
@@ -183,7 +209,7 @@ def file_to_base64(file_path):
         return base64_encoded.decode('utf-8')
 
 def handle_submit(global_args):
-    with tracer.start_as_current_span('submit', attributes={'realm': global_args.realm}) as span:
+    with new_span('submit', attributes={'realm': global_args.realm}) as span:
         files = []
         info = []
         args = parse_submit_args(global_args)
@@ -204,8 +230,10 @@ def handle_submit(global_args):
         raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
         raiseif(args.method == 'scp' and not args.scpUser, 'When the method is "scp", the scpUser option must be specified')
 
+        tx_id = f"{str(uuid.uuid4())}"
+        span.set_attribute('tx', tx_id)
         # Create a manifest and save to a temporary location
-        manifest = {'tx': f"{str(uuid.uuid4())}", 'documents': []}
+        manifest = {'tx': tx_id, 'documents': []}
         if args.resourceId:
             references = [{'resourceId': args.resourceId}]
             references[0]['resourceType'] = args.resourceType
@@ -244,17 +272,20 @@ def handle_submit(global_args):
             to = f"{args.rawFilesystemMount}/{global_args.realm}"
             os.makedirs(to, exist_ok=True)
             for file in files:
-                shutil.copy(os.path.join(basedir, file), to)
+                with new_span('copy', attributes={'file': file}):
+                    shutil.copy(os.path.join(basedir, file), to)
         elif args.method == 'scp':
             with paramiko.SSHClient() as remote_client:
-                if not args.autoAddHostKey:
+                # TODO check if this is secure enough
+                if args.autoAddHostKey:
                     remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassowrd)
+                remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassword, look_for_keys=False, allow_agent=False)
                 to = f"{args.scpPath}/{global_args.realm}"
                 with remote_client.open_sftp() as ftp_session:
                     for file in files:
-                        ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
-                # ftp_client.close()
+                        with new_span('scp', attributes={'file': file}):
+                            ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
+                # remote_client.close()
 
         # Setup auth token
         private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
@@ -288,10 +319,9 @@ def handle_submit(global_args):
                 response_json = response.json()
         
         response_json['info'] = info
-        print(json.dumps(response_json, indent=2))
-        span.set_attributes({'txKey': response_json['dr:txId'], 'tx': response_json['tx']})
-        span.set_status(Status(StatusCode.OK))
-
+        print(to_json(response_json))
+        span.set_attribute('txKey', response_json['dr:txId'])
+        
 def handle_command(args):
     if args.command == 'get':
         handle_get(args)
@@ -339,9 +369,13 @@ if __name__ == '__main__':
         tracer = init_tracing(args.otelTraceExp, args.otelTraceExpEndpoint,
                              args.otelTraceAuthTokenKey, args.otelTraceAuthTokenVal)
         handle_command(args)
+        trace.get_current_span().set_status(Status(StatusCode.OK))
     except Exception as e:
+        err = {'error': str(e)}
         if args and args.debug:
-            print(traceback.format_exc(), file=sys.stderr)
-        else:
-            print(e, file=sys.stderr)
+            err['trace'] = str(traceback.format_exc())
+        print(to_json(err))
+        span = trace.get_current_span()
+        span.set_status(Status(StatusCode.ERROR))
+        span.record_exception(e)
         sys.exit(1)

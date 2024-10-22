@@ -10,7 +10,6 @@ import fleep
 
 from opentelemetry import trace
 from opentelemetry.trace import SpanKind
-from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 from minio.commonconfig import Tags
 import json
 from subprocess import PIPE, STDOUT
@@ -23,7 +22,7 @@ from dao.document import create_references, create_doc, create_doc_version, crea
 from model.file_validator import validate_documents
 from model.common import current_time_ms, format_result_base
 from model.authorizer import authorize_submit
-from trace_util import new_span
+from trace_util import new_span, instrumented_connection
 from metrics_util import increment_submit_requests, increment_submit_errors, record_submit_doc_count, record_submit_files_bytes
 
 def get_payload_from_form(realm, request):
@@ -286,8 +285,7 @@ def submit_docs_tx(untrusted_fs_mount, raw_fs_mount, scanner_fs_mount, bucket, c
     metrics_attribs = {'realm': realm, 'txType': 'submit'}
     
     start = current_time_ms()
-    # TODO Look into why we need to explictly use MySQLInstrumentor().instrument_connection() instead of being globally initialized, as we have done it in gateway.py
-    connection = MySQLInstrumentor().instrument_connection(connection_pool.get_connection())
+    connection = instrumented_connection(connection_pool.get_connection())
     stage_dir = stage_dirname(untrusted_fs_mount)
     try:
         payload = None

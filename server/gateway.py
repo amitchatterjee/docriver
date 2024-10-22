@@ -33,10 +33,13 @@ from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from controller.http import init_app, init_params
 from auth.keystore import get_entries
 import metrics_util
+import trace_util
 
-def init_db(host, port, db, user, password, pool_size):
+def init_db(host, port, db, user, password, pool_size, instrument_connection = False):
     # Instrument MySQL conections
-    MySQLInstrumentor().instrument()
+    if instrument_connection:
+        MySQLInstrumentor().instrument()
+    trace_util.set_instrument_connection(instrument_connection)
     
     return mysql.connector.pooling.MySQLConnectionPool(pool_name='docriver', 
             pool_size=pool_size,
@@ -157,6 +160,7 @@ def parse_args(args):
     parser.add_argument("--otelTraceExp", help="Opentelemetry trace exporter. Valid values are: none, console and otlp", default=None)
     parser.add_argument('--otelMetricsExp', help="Opentelemetry metrics exporter. Valid values are: none, console and otlp", default=None)    
     parser.add_argument('--otelLogInstrument', help="Instrument logs with opentel trace attributes", action=argparse.BooleanOptionalAction)
+    parser.add_argument('--otelConnectionInstrument', help="Instrument database connection with opentel trace attributes", action=argparse.BooleanOptionalAction)
     
     parser.add_argument("--otelExpEndpoint", help="Opentelemetry collector endpoint. Only required if OTLP export is enabled", default=None)
     parser.add_argument("--otelBackendAuthTokenKey", help="Opentelemetry auth token key name. This is only needed for certain backends")
@@ -176,7 +180,7 @@ if __name__ == '__main__':
     
     init_metrics(args.otelMetricsExp, args.otelExpEndpoint, args.otelBackendAuthTokenKey, args.otelBackendAuthTokenKey)
     
-    connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize)
+    connection_pool = init_db(args.dbHost, args.dbPort, args.dbDatabase, args.dbUser, args.dbPassword, args.dbPoolSize, args.otelConnectionInstrument)
     
     minio = init_obj_store(args.objUrl, args.objAccessKey, args.objSecretKey)
     

@@ -1,11 +1,11 @@
 from opentelemetry import trace
 from datetime import datetime
-from opentelemetry.instrumentation.mysql import MySQLInstrumentor
 
 import logging
 
 import dao.tx as dao
 from model.authorizer import authorize_get_events
+from trace_util import instrumented_connection
 
 def get_events(realm, start, end, connection_pool, token, public_keys, audience):
     # token = attach(baggage.set_baggage('realm', realm))
@@ -16,7 +16,7 @@ def get_events(realm, start, end, connection_pool, token, public_keys, audience)
     logging.info("Received tx events for: {}. Principal: {}".format(realm, principal))
     span.set_attribute('principal', principal)
     
-    connection = MySQLInstrumentor().instrument_connection(connection_pool.get_connection())
+    connection = instrumented_connection(connection_pool.get_connection())
     cursor = None
     try:
         cursor = connection.cursor()
