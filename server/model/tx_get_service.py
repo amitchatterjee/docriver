@@ -20,7 +20,7 @@ def get_events(realm, start, end, connection_pool, token, public_keys, audience)
     cursor = None
     try:
         cursor = connection.cursor()
-        events = dao.get_events(cursor, realm, datetime.fromtimestamp(start), datetime.fromtimestamp(end))
+        events = dao.get_events(cursor, realm, start, end)
         result = []
         for event in events:
             result.append({'eventTime': int(event[0].strftime('%s')),

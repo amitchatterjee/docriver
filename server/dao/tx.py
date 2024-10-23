@@ -19,11 +19,12 @@ def get_events(cursor, realm, start_time, end_time):
             JOIN DOC d ON e.DOC_ID = d.ID
             JOIN DOC_VERSION v ON v.DOC_ID = d.ID
         WHERE 
-            e.EVENT_TIME BETWEEN %s AND %s
+            e.EVENT_TIME BETWEEN FROM_UNIXTIME(%s) AND FROM_UNIXTIME(%s)
             AND d.REALM = %s
         ORDER BY 
             e.EVENT_TIME
-        """, (start_time.strftime('%Y-%m-%d %H:%M:%S'), end_time.strftime('%Y-%m-%d %H:%M:%S'), realm))
+        """, (start_time, end_time, realm))
+    # print(cursor.statement)
     events = []
     rows = cursor.fetchall()
     for row in rows:

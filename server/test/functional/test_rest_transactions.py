@@ -1,6 +1,7 @@
 import pytest
 import sys
 import os
+import time
 
 from test.functional.fixture import cleanup, client, connection_pool, minio, scanner, tracer, metrics
 from test.functional.util import submit_inline_doc, submit_path_doc, submit_path_docs, assert_location, exec_get_events, submit_ref_doc, delete_docs, TEST_REALM
@@ -386,3 +387,31 @@ def test_document_get_latest_version(cleanup, connection_pool, client):
     response = client.get('/document/' + TEST_REALM + '/d001')
     assert 200 == response.status_code
     assert 'image/jpeg' == response.headers['Content-Type']
+    
+def test_document_get_events_default(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.jpg', '2', 'd002', 'base64', 'image/jpeg'))
+    assert (200,'ok') == result
+    response = client.get(f"/tx/{TEST_REALM}", headers={"Accept": "application/json"})
+    assert 200 == response.status_code
+    json_result = response.json
+    assert 2 == len(json_result)
+    
+def test_document_get_events_with_limits(cleanup, connection_pool, client):
+    result = submit_inline_doc(client, ('file:sample.pdf', '1', 'd000', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    
+    time.sleep(1)
+    start = int(time.time())
+    result = submit_inline_doc(client, ('file:sample.pdf', '2', 'd001', 'base64', 'application/pdf'))
+    assert (200,'ok') == result
+    result = submit_inline_doc(client, ('file:sample.jpg', '3', 'd002', 'base64', 'image/jpeg'))
+    assert (200,'ok') == result
+    time.sleep(1)
+    end = int(time.time())
+    
+    response = client.get(f"/tx/{TEST_REALM}", query_string={'from': start, 'to': end}, headers={"Accept": "application/json"})
+    assert 200 == response.status_code
+    json_result = response.json
+    assert 2 == len(json_result)

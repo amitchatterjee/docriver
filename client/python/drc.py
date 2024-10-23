@@ -177,11 +177,13 @@ def parse_submit_args(global_args):
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--source", help="Full path name of the source location. Maybe a file or a directory", required=True)
-    supported_methods = ['inline', 'upload', 'copy', 'scp']
+    supported_methods = ['inline', 'stream', 'copy', 'scp']
     parser.add_argument("--method", choices=supported_methods,
-                        default='upload', help="Method by which the files are submitted")
+                        default='stream', help="Method by which the files are submitted")
     parser.add_argument("--prefix", default='',
                         help="Prefix used while naming the document(s)")
+    parser.add_argument("--manifest", default=None,
+                        help="Full path of a manifest file. If not provided, a manifest is created based on the parameters specified")
     parser.add_argument("--filter", default='.*',
                         help="Regex to filter filenames if the source is a directory")
     parser.add_argument("--documentType", help="The type of the document")
@@ -193,9 +195,9 @@ def parse_submit_args(global_args):
                         help="Description of the purpose of this document")
     parser.add_argument("--replacesDocument",
                         help="The ID of the document that this document replaces")
-    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of uploading")
-    parser.add_argument("--scpHost", default='locahost', help="Remote host name. The applications can upload the files using sftp/scp to this host and specify the location instead of uploading")
-    parser.add_argument("--scpUser", help="Remote user name")
+    parser.add_argument("--rawFilesystemMount", help="mount point of the shared filesystem where raw documents is stored by applications. The applications can copy files to this location and specify the location instead of streaming")
+    parser.add_argument("--scpHost", default='locahost', help="Remote host name. The applications can upload the files using sftp/scp to this host and specify the location instead of streaming")
+    parser.add_argument("--scpUser", default=os.getlogin(), help="Remote user name")
     parser.add_argument("--scpPassword", default='', help="Password for the user")
     parser.add_argument("--scpPath", default='./', help="Base path on the remote server where the file will be copied to")
     parser.add_argument('--autoAddHostKey', help="Auto-add host key", action=argparse.BooleanOptionalAction)
@@ -225,67 +227,22 @@ def handle_submit(global_args):
             files.append(file)
             
         # Validate args
+        raiseif(args.manifest and args.method == 'inline', 'When a manifest file is specified, inline method is not allowed')
+        raiseif(args.manifest and (args.resourceId or args.resourceType or args.replacesDocument), "When a manifest file is specified, resourceId, resourceType and replacesDocument must be encoded in the manifest file and not passed as options for this command")
         raiseif(args.resourceId and not args.resourceType, 'If resourceId is specified, resourceType must also be specified')
         raiseif(len(files) > 1 and args.replacesDocument, "replacesDocument option is only supported when submitting a single document")
         raiseif(args.method == 'copy' and not args.rawFilesystemMount, 'When the method is "copy", the rawFilesystemMount option must be specified')
         raiseif(args.method == 'scp' and not args.scpUser, 'When the method is "scp", the scpUser option must be specified')
 
-        tx_id = f"{str(uuid.uuid4())}"
-        span.set_attribute('tx', tx_id)
-        # Create a manifest and save to a temporary location
-        manifest = {'tx': tx_id, 'documents': []}
-        if args.resourceId:
-            references = [{'resourceId': args.resourceId}]
-            references[0]['resourceType'] = args.resourceType
-            if args.resourceDescription:
-                references[0]['resourceDescription'] = args.resourceDescription
-            manifest['references'] = references
-
-        for file in files:
-            index = file.rfind('.')
-            # fname = file[:index]
-            ext = file[index+1:]
-            content = {}
-            if args.method == 'inline':
-                mime = mimetypes.guess_type(file)[0]
-                content['mimeType'] = mime
-                content['encoding'] = 'base64'
-                content['inline'] = file_to_base64(os.path.join(basedir, file))
-            else:
-                content['path'] = file
-            doc = {'document': f"{args.prefix}{file}-{int(time.time())}",
-                    'type': args.documentType if args.documentType else ext,
-                    'content': content,
-                    'properties': {'filename': file}}
-            if args.replacesDocument:
-                doc['replaces'] = args.replacesDocument
-            manifest['documents'].append(doc)
-
-        manifest_path = None
-        with tempfile.NamedTemporaryFile(mode='w+t', delete=False, suffix='.json', prefix='manifest-') as tmpfile:
-            tmpfile.write(json.dumps(manifest))
-            manifest_path = tmpfile.name
+        manifest = None 
+        manifest_path = None 
+        if args.manifest:
+            manifest, manifest_path = read_manifest(args)
+        else:
+            manifest, manifest_path = create_manifest(span, files, args, basedir)
         info.append({'manifest': manifest_path})
-
-        if args.method == 'copy':
-            # copy the files
-            to = f"{args.rawFilesystemMount}/{global_args.realm}"
-            os.makedirs(to, exist_ok=True)
-            for file in files:
-                with new_span('copy', attributes={'file': file}):
-                    shutil.copy(os.path.join(basedir, file), to)
-        elif args.method == 'scp':
-            with paramiko.SSHClient() as remote_client:
-                # TODO check if this is secure enough
-                if args.autoAddHostKey:
-                    remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassword, look_for_keys=False, allow_agent=False)
-                to = f"{args.scpPath}/{global_args.realm}"
-                with remote_client.open_sftp() as ftp_session:
-                    for file in files:
-                        with new_span('scp', attributes={'file': file}):
-                            ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
-                # remote_client.close()
+        
+        copy_files(global_args, args, basedir, files)
 
         # Setup auth token
         private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
@@ -299,8 +256,8 @@ def handle_submit(global_args):
 
         response_json = None
         # Send the request
-        if args.method == 'upload':
-            # Create form data upload list
+        if args.method == 'stream':
+            # Create form data file list
             form_files = [('files', ('manifest.json', open(
                 manifest_path, 'r'), 'application/json'))]
             for file in files:
@@ -321,6 +278,71 @@ def handle_submit(global_args):
         response_json['info'] = info
         print(to_json(response_json))
         span.set_attribute('txKey', response_json['dr:txId'])
+
+def read_manifest(args):
+    with open(args.manifest, 'r') as file:
+        manifest_string = file.read()
+    manifest = json.loads(manifest_string)
+    return manifest,args.manifest
+
+def copy_files(global_args, args, basedir, files):
+    if args.method == 'copy':
+        # copy the files
+        to = f"{args.rawFilesystemMount}/{global_args.realm}"
+        os.makedirs(to, exist_ok=True)
+        for file in files:
+            with new_span('copy', attributes={'file': file}):
+                shutil.copy(os.path.join(basedir, file), to)
+    elif args.method == 'scp':
+        with paramiko.SSHClient() as remote_client:
+            # TODO check if this is secure enough
+            if args.autoAddHostKey:
+                remote_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+            remote_client.connect(hostname=args.scpHost, username=args.scpUser, password=args.scpPassword, look_for_keys=False, allow_agent=False)
+            to = f"{args.scpPath}/{global_args.realm}"
+            with remote_client.open_sftp() as ftp_session:
+                for file in files:
+                    with new_span('scp', attributes={'file': file}):
+                        ftp_session.put(os.path.join(basedir, file), f"{to}/{file}")
+            # remote_client.close()
+
+def create_manifest(span, files, args, basedir):
+    tx_id = f"{str(uuid.uuid4())}"
+    span.set_attribute('tx', tx_id)
+        # Create a manifest and save to a temporary location
+    manifest = {'tx': tx_id, 'documents': []}
+    if args.resourceId:
+        references = [{'resourceId': args.resourceId}]
+        references[0]['resourceType'] = args.resourceType
+        if args.resourceDescription:
+            references[0]['resourceDescription'] = args.resourceDescription
+        manifest['references'] = references
+
+    for file in files:
+        index = file.rfind('.')
+            # fname = file[:index]
+        ext = file[index+1:]
+        content = {}
+        if args.method == 'inline':
+            mime = mimetypes.guess_type(file)[0]
+            content['mimeType'] = mime
+            content['encoding'] = 'base64'
+            content['inline'] = file_to_base64(os.path.join(basedir, file))
+        else:
+            content['path'] = file
+        doc = {'document': f"{args.prefix}{file}-{int(time.time())}",
+                    'type': args.documentType if args.documentType else ext,
+                    'content': content,
+                    'properties': {'filename': file}}
+        if args.replacesDocument:
+            doc['replaces'] = args.replacesDocument
+        manifest['documents'].append(doc)
+
+    manifest_path = None
+    with tempfile.NamedTemporaryFile(mode='w+t', delete=False, suffix='.json', prefix='manifest-') as tmpfile:
+        tmpfile.write(json.dumps(manifest))
+        manifest_path = tmpfile.name
+    return manifest,manifest_path
         
 def handle_command(args):
     if args.command == 'get':

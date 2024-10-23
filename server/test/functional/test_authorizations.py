@@ -135,4 +135,24 @@ def test_get_document_unauthorized_realm(cleanup, client_with_security):
     response = client_with_security.get('/document/' + TEST_REALM + '/d001', headers={'Authorization': token})
     assert 401 == response.status_code
 
+def test_get_events_unauthorized_realm(cleanup, client_with_security):
+    result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'), keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'submit'})
+    assert (200,'ok') == result
+    
+    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(issuer_keystore_path('p123456'), 'docriver')
+    encoded = issue(private_key, signer_cn, 'unknown', 'docriver', 1, 'docriver', {'txType': 'get-events'})
+    token = "Bearer " + encoded[0]
+    response = client_with_security.get(f"/tx/{TEST_REALM}", headers={"Authorization": token, "Accept": "application/json"})
+    assert 401 == response.status_code
+    
+def test_get_events_valid_realm(cleanup, client_with_security):
+    result = submit_inline_doc(client_with_security, ('file:sample.pdf', '1', 'd001', 'base64', 'application/pdf'), keystore_file=issuer_keystore_path(TEST_REALM), permissions={'txType': 'submit'})
+    assert (200,'ok') == result
+    
+    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(issuer_keystore_path(TEST_REALM), 'docriver')
+    encoded = issue(private_key, signer_cn, 'unknown', 'docriver', 1, 'docriver', {'txType': 'get-events'})
+    token = "Bearer " + encoded[0]
+    response = client_with_security.get(f"/tx/{TEST_REALM}", headers={"Authorization": token, "Accept": "application/json"})
+    assert 200 == response.status_code
+
 # TODO - add test for reference authorization
