@@ -28,11 +28,8 @@ from opentelemetry.sdk.resources import Resource
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.trace import Status, StatusCode
 
-sys.path.append(os.path.abspath(os.path.join(
-    os.getenv('DOCRIVER_GW_HOME'), 'server')))
-
-from auth.token import issue
-from auth.keystore import get_entries
+from docriver_auth.auth_token import issue
+from docriver_auth.keystore import get_entries
 
 tracer = None
 

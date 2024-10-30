@@ -26,6 +26,9 @@ pip install -r $DOCRIVER_GW_HOME/docker/requirements.txt
 # Install pytest
 pip install -U pytest pytest-cov
 
+# Install pkg build
+pip install build
+
 ### Strictly, you don't need the clients to be installed because they can be executed from the docker images. This is more of a convenience.
 
 # Install minio client
@@ -89,6 +92,13 @@ pip install debugpy
 }
 
 #######################################################
+# Build and install packages
+#######################################################
+cd $DOCRIVER_GW_HOME/auth
+python -m build
+pip install dist/docriver_auth-1.0.0b0.tar.gz
+
+#######################################################
 # Build the docker containers
 #######################################################
 $DOCRIVER_GW_HOME/infrastructure/sh/build-docker.sh docriver-base
@@ -124,40 +134,24 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/serv
 # To connect to a server with self-signed certificate, append the following additional parameters (change as needed) to the commands below:
 -u "https://localhost:5000/tx" -n
 
-# Inline document ingestion - deprecated
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -m 'application/pdf' -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -m application/pdf -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
-
-# Inline document ingestion using the drc client - recommended
+# Inline document ingestion using the drc client
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method inline --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment'
 
 
-# Ingestion from raw file mount - deprecated
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -b $HOME/storage/docriver/raw -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf
-
-# Ingestion from raw file mount using the drc client - recommended
+# Ingestion from raw file mount using the drc client
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method copy --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --rawFilesystemMount $HOME/storage/docriver/raw
 
 # Ingestion using scp using the drc client - change the XXX, YYY, HHHH, etc.
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method scp --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/sample.pdf --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --scpUser XXX --scpPassword YYYY --scpHost HHHH --autoAddHostKey --scpPath ~/storage/docriver/raw
 
-# Multipart form file ingestion - deprecated
-$DOCRIVER_GW_HOME/client/sh/bulk-docs-submit.sh -f $HOME/cheetah -y "Flickr images" -e "$(date '+%Y-%m-%d-%H-%M-%S')/"
-
-# Multipart form file ingestion using the drc client - recommended
+# Multipart form file ingestion using the drc client
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --source $HOME/cheetah --documentType "Flickr images" --prefix "$(date '+%Y-%m-%d-%H-%M-%S')/" --resourceType image --resourceId 123 --resourceDescription 'upload from flickr'
 
-# Virus scan failure - deprecated
-$DOCRIVER_GW_HOME/client/sh/doc-submit.sh -y payment-receipt -r claim -i C1234567 -p "Proof of payment" -f $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt -b $HOME/storage/docriver/raw
-
-# Virus scan failure - recommended
+# Virus scan failure
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug submit --method copy --source $DOCRIVER_GW_HOME/server/test/resources/documents/test123456/eicar.txt --documentType "receipt" --resourceType claim --resourceId C1234567 --resourceDescription 'Proof of payment' --rawFilesystemMount $HOME/storage/docriver/raw
 
 # Download a document - NOTE: change the document number and output path name
-    # Deprecated
-    $DOCRIVER_GW_HOME/client/sh/doc-get.sh -d 8ed01cbe-f508-11ee-b3a5-2016b95ee0b1 -o /tmp/download.pdf
-
-    # Recommended:
-    drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug get document --name "2024-09-30-12-20-55/52946576006_420234d4f2_c.jpg-1727713256" --output /tmp/something.jpg
+drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug get document --name "2024-09-30-12-20-55/52946576006_420234d4f2_c.jpg-1727713256" --output /tmp
 
 # Cleanup
 $DOCRIVER_GW_HOME/infrastructure/sh/dr-scrub.sh

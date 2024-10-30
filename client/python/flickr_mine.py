@@ -12,9 +12,8 @@ import json
 from PIL import Image
 from datetime import datetime
 
-sys.path.append(os.path.abspath(os.path.join(os.getenv('DOCRIVER_GW_HOME'), 'server')))
-from auth.keystore import get_entries
-from auth.token import issue
+from docriver_auth.keystore import get_entries
+from docriver_auth.auth_token import issue
 
 def parse_args():
     parser = argparse.ArgumentParser()
