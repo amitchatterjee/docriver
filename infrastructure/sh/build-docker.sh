@@ -18,4 +18,11 @@ mkdir -p $target
 
 cp -R $DOCRIVER_GW_HOME/docker/$image_name/* $target
 
+if [ -f "$DOCRIVER_GW_HOME/docker/$image_name/wheels.txt" ]; then
+    wheels=$(find . -name '*.whl')
+    for wheel in $wheels; do
+        cp $wheel $target
+    done
+fi
+
 docker build -t $image_name:$version $target

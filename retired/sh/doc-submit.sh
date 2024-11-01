@@ -121,7 +121,7 @@ EOF
   fi
 fi
 
-token="Bearer $(python $DOCRIVER_GW_HOME/server/token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions txType:submit resourceType:$resource_type resourceId: $resourceId documentCount:1)"
+token="Bearer $(token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions txType:submit resourceType:$resource_type resourceId: $resourceId documentCount:1)"
 
 cat << EOF > /tmp/manifest.json
 {

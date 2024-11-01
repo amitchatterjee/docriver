@@ -81,7 +81,7 @@ if [ -z "$output_path" ]; then
   exit 1
 fi
 
-token="Bearer $(python $DOCRIVER_GW_HOME/server/token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions txType:get-document 'document:.*')"
+token="Bearer $(token_issue.py --keystore $keystore_file  --password $keystore_password --resource document --expires 300 --subject $USER --permissions txType:get-document 'document:.*')"
 
 rm -f $output_path
 curl $insecure --fail-with-body -s -X GET -o $output_path -H "Authorization:$token" "${server_url}/${realm}/$(rawurlencode $doc_id)"

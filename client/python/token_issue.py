@@ -3,8 +3,8 @@
 import argparse
 import os
 from pprint import pprint
-from auth.keystore import get_entries
-from auth.token import issue
+from docriver_auth.keystore import get_entries
+from docriver_auth.auth_token import issue
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Issue JWT token')

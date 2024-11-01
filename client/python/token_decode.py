@@ -2,8 +2,8 @@
 
 import argparse
 from pprint import pprint
-from auth.keystore import get_entries
-from auth.token import decode
+from docriver_auth.keystore import get_entries
+from docriver_auth.auth_token import decode
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Authorize JWT token')
