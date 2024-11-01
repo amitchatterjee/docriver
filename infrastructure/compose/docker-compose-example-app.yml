@@ -14,7 +14,7 @@ services:
       test: curl --insecure https://localhost:5001/health || exit 1
       timeout: 30s
     volumes:
-    - ${DOCRIVER_GW_HOME}/server:/app
+    - ${DOCRIVER_GW_HOME}/server/src/docriver_server:/app
     - ${HOME}/.ssh/docriver:/keystore
     command: ["python", "/app/reference_token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug"]
   example-app-nginx:

@@ -100,14 +100,14 @@ pip install dist/docriver_auth-1.0.0b0.tar.gz
 
 cd $DOCRIVER_GW_HOME/client
 python -m build
-pip install dist/docriver_client-1.0.0b0.tar.gz
+
+cd $DOCRIVER_GW_HOME/server
+python -m build
 
 #######################################################
 # Build the docker containers
 #######################################################
-$DOCRIVER_GW_HOME/infrastructure/sh/build-docker.sh docriver-base
-
-$DOCRIVER_GW_HOME/infrastructure/sh/build-docker.sh nginx-opentel
+build-packages.sh
 
 #######################################################
 # Start infrastructure components
@@ -122,13 +122,13 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backen
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
 # Run the gateway without Authorization - bad idea
-python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+python $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 # Run the gateway with Authorization turned on - recommended
-python $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
+python $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
-python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
+python -m debugpy --listen 0.0.0.0:5678 --wait-for-client $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
 
 #######################################################
 # Execute clients
