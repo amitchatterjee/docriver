@@ -31,7 +31,7 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 
 from controller.http import init_app, init_params
-from auth.keystore import get_entries
+from docriver_auth.keystore import get_entries
 import metrics_util
 import trace_util
 

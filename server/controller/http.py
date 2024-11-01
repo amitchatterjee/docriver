@@ -5,7 +5,8 @@ import logging
 import os
 import time
 
-from exceptions import ValidationException, AuthorizationException, DocumentException
+from exceptions import ValidationException, DocumentException
+from docriver_auth.exceptions import AuthorizationException
 from model.tx_submit_service import submit_docs_tx
 from model.tx_delete_service import delete_docs_tx
 from model.tx_get_service import get_events

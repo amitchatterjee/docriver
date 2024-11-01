@@ -3,8 +3,8 @@ import base64
 import time
 from controller.http import init_app
 from gateway import init_db, init_obj_store, init_virus_scanner
-from auth.keystore import get_entries
-from auth.token import issue
+from docriver_auth.keystore import get_entries
+from docriver_auth.auth_token import issue
 from model.s3_url import parse_url
 TEST_REALM = 'test123456'
 

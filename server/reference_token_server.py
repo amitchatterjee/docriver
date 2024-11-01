@@ -9,9 +9,10 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_accept import accept
 
-from exceptions import ValidationException, AuthorizationException
-from auth.keystore import get_entries
-from auth.token import issue
+from exceptions import ValidationException
+from docriver_auth.exceptions import AuthorizationException
+from docriver_auth.keystore import get_entries
+from docriver_auth.auth_token import issue
 from okta.verify import OktaTokenValidator
 
 app = Flask(__name__)

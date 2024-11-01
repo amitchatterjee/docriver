@@ -1,5 +1,5 @@
-from auth.token import decode
-from exceptions import AuthorizationException
+from docriver_auth.auth_token import decode
+from docriver_auth.exceptions import AuthorizationException
 import re
 import logging
 
