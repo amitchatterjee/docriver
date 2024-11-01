@@ -98,6 +98,10 @@ cd $DOCRIVER_GW_HOME/auth
 python -m build
 pip install dist/docriver_auth-1.0.0b0.tar.gz
 
+cd $DOCRIVER_GW_HOME/client
+python -m build
+pip install dist/docriver_client-1.0.0b0.tar.gz
+
 #######################################################
 # Build the docker containers
 #######################################################
