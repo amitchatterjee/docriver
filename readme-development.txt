@@ -94,20 +94,24 @@ pip install debugpy
 #######################################################
 # Build and install packages
 #######################################################
+# Build all packages
+build-packages.sh
+
+# Build individual packages
 cd $DOCRIVER_GW_HOME/auth
-python -m build
-pip install dist/docriver_auth-1.0.0b0.tar.gz
+python -m build --wheel
 
-cd $DOCRIVER_GW_HOME/client
-python -m build
-
-cd $DOCRIVER_GW_HOME/server
-python -m build
+# Install a package
+pip install --force-reinstall dist/docriver_auth-1.0.0b0-py3-none-any.whl
 
 #######################################################
 # Build the docker containers
 #######################################################
-build-packages.sh
+
+# Make sure you build the packages first. All wheel archives are automatically installed on the server
+build-docker.sh docriver-base
+
+build-docker.sh nginx-opentel
 
 #######################################################
 # Start infrastructure components
@@ -166,11 +170,12 @@ mysql -h 127.0.0.1 -u docriver -p docriver
 #######################################################
 # Run tests
 #######################################################
-cd $DOCRIVER_GW_HOME
+cd $DOCRIVER_GW_HOME/server
 # Run all tests
 python -m pytest --cov -rPX -vv
-# Run one test
-python -m pytest --cov -rPX -vv 'src/test/functional/test_rest_doc_transactions.py::test_ref_document'
+
+# Run one file or one test
+python -m pytest --cov -rPX -vv 'test/functional/test_rest_doc_transactions.py::test_ref_document'
 
 #### Don't use the --cov option as this modifies the complied code and as a result, breakpoints won't hit
 
