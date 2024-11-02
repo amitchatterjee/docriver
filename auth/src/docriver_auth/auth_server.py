@@ -10,12 +10,16 @@ from flask_cors import CORS
 from flask_accept import accept
 from okta.verify import OktaTokenValidator
 
-from exceptions import ValidationException
-from docriver_auth.exceptions import AuthorizationException
-from docriver_auth.keystore import get_entries
-from docriver_auth.auth_token import issue
+from exceptions import AuthorizationException
+from keystore import get_entries
+from auth_token import issue
 
 app = Flask(__name__)
+
+class ValidationException(Exception):
+    def __init__(self, message="Validation exception"):
+        self.message = message
+        super().__init__(self.message)
 
 # TODO read from files
 allowed_operations = {
