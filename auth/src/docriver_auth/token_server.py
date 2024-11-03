@@ -21,16 +21,6 @@ class ValidationException(Exception):
         self.message = message
         super().__init__(self.message)
 
-# TODO read from files
-allowed_operations = {
-    'appealsSupport': ['get-document', 'submit', 'delete'],
-    'appealsAuditor': ['get-document']
-}
-
-allowed_resources = {
-    'appealsSupport': ['claim']
-}
-
 def parse_args(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--httpPort", type=int, help="HTTP port number", default=5001)
@@ -44,6 +34,9 @@ def parse_args(args):
                         help='OKTA token URL')
     parser.add_argument('--oktaAud', default=None,
                         help='OKTA token audience')
+    
+    parser.add_argument('--permissions', required=True,
+                        help="A file containing all the grants/permissions for various roles")
     
     parser.add_argument('--tlsKey', default=None,
                         help="A file containing the site's TLS private key (PEM)")
@@ -91,10 +84,10 @@ def authorize_request(assigned_permissions, requested_permissions):
             # Create a regex with all the assigned realms
             requested_permissions['realm'] = "({})".format('|'.join(assigned['realms']))
         
-        authorize_element(assigned, requested_permissions, allowed_operations, 'txType')
+        authorize_element(assigned, requested_permissions, permissions['operations'], 'txType')
 
         if requested_permissions['txType'] == 'submit':
-            authorize_element(assigned, requested_permissions, allowed_resources, 'resourceType')
+            authorize_element(assigned, requested_permissions, permissions['resources'], 'resourceType')
 
     except(json.decoder.JSONDecodeError):
         raise ValidationException("Assigned permissions not in JSON format")
@@ -172,9 +165,15 @@ def handle_internal_error(e):
     return jsonify({'error': str(e)}), 500, {'Content-Type': 'application/json'}
 
 if __name__ == '__main__':
-    global private_key, signer_cn, signer_cert, okta_token_validator
+    global private_key, signer_cn, signer_cert, okta_token_validator, permissions
+    
     args = parse_args(sys.argv[1:])
     logging.basicConfig(level=args.log)
+
+    file_content = None
+    with open(args.permissions, 'r') as file:
+        file_content = file.read()
+    permissions = json.loads(file_content)
 
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
     
@@ -183,6 +182,7 @@ if __name__ == '__main__':
         okta_token_validator = OktaTokenValidator(args.oktaUrl, args.oktaAud)
 
     CORS(app, resources={r"/*": {"origins": "*"}})
+    
     if args.tlsKey:
         logging.info("Starting server in TLS mode - cert: {}, key: {}".format(args.tlsCert, args.tlsKey))
         app.run(host="0.0.0.0", ssl_context=(args.tlsCert, args.tlsKey), port=args.httpPort, debug=args.debug)

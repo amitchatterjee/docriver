@@ -15,9 +15,9 @@ python -m venv docriver-venv
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
 export DOCRIVER_GW_HOME=$HOME/git/docriver-gateway
-# Make changes to the env.sh file as needed
 source $DOCRIVER_GW_HOME/env.sh
 source $HOME/docriver-venv/bin/activate
+# If you need to override some of the default properties in env.sh, add them to ~/.bashrc
 # Exit the shell and create a new one before continuing further
 
 # Install python dependencies
@@ -54,14 +54,14 @@ mkdir -p $HOME/storage/docriver/raw/p123456/
 # Add keys and certificates for token verification
 rm $HOME/.ssh/docriver/*
 # Create a key pair + x509 certificate for docriver (master) key + cert.
-$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh master $HOME/.ssh/docriver
+dr-create-certs.sh master $HOME/.ssh/docriver
 
 # Create a key pair + x509 certificate for docriver (master) key + cert.
-$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh docriver $HOME/.ssh/docriver
+dr-create-certs.sh docriver $HOME/.ssh/docriver
 
 # Create key + x509 cert for each realm in the system
-$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh p123456 $HOME/.ssh/docriver
-$DOCRIVER_GW_HOME/infrastructure/sh/dr-create-certs.sh test123456 $HOME/.ssh/docriver
+dr-create-certs.sh p123456 $HOME/.ssh/docriver
+dr-create-certs.sh test123456 $HOME/.ssh/docriver
 
 # Copy all the certificates into the docrive keystore and with the docriver private key
 cat $HOME/.ssh/docriver/master.crt $HOME/.ssh/docriver/docriver.crt $HOME/.ssh/docriver/p123456.crt $HOME/.ssh/docriver/test123456.crt > $HOME/.ssh/docriver/truststore.crt
@@ -125,10 +125,7 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backen
 # Start the docker gateway docker containers - Note that this is not needed if you want to run the gateway by executing the python commands shown below.
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
-# Run the gateway without Authorization - bad idea
-python $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --debug
-
-# Run the gateway with Authorization turned on - recommended
+# Run the gateway
 python $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
@@ -162,7 +159,7 @@ drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTra
 drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTraceExp $DOCRIVER_OTEL_TRACE_EXP --otelTraceExpEndpoint http://localhost:4318/v1/traces --otelTraceAuthTokenKey $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_HEADER --otelTraceAuthTokenVal $DOCRIVER_OTEL_TRACE_EXPORT_ENDPOINT_AUTH_VAL --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io --debug get document --name "2024-09-30-12-20-55/52946576006_420234d4f2_c.jpg-1727713256" --output /tmp
 
 # Cleanup
-$DOCRIVER_GW_HOME/infrastructure/sh/dr-scrub.sh
+dr-scrub.sh
 
 # Access the metadata
 mysql -h 127.0.0.1 -u docriver -p docriver
@@ -186,13 +183,3 @@ python -m debugpy --listen 0.0.0.0:5678 --wait-for-client -m pytest -rPX -vv
 # Scaling
 #######################################################
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up -d --scale docriver-gateway=2 --no-recreate
-
-#######################################################
-# Virus Scan - ignore. My scribbles 
-#######################################################
-# Virus scanner with clamscan - this does not require server but it is slower. Note the use of signaturedb. This is the directory where the signatures are downloaded, stored and refreshed. This is important to setup. Otherwise, there will be a long download everytime clamscan is called. This will be very slow and will also result in rate-limiting from the sites where the signatures are downloaded 
-mkdir -p $HOME/storage/clamav/signaturedb
-chmod -R a+rwx $HOME/storage/clamav/signaturedb
-
-# clamscan
-docker run -it --rm --network dl --name clamscan --mount type=bind,source=$HOME/storage/docriver/untrusted,target=/scandir --volume $HOME/storage/clamav/signaturedb:/var/lib/clamav clamav/clamav:stable_base clamscan /scandir/<DIR_TOSCAN>

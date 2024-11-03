@@ -1,0 +1,10 @@
+{
+    "operations": {
+        "appealsSupport": ["get-document", "submit", "delete"],
+        "appealsAuditor": ["get-document"]
+    },
+    
+    "resources": {
+        "appealsSupport": ["claim"]
+    }
+}

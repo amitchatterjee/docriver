@@ -16,7 +16,8 @@ services:
     volumes:
     - ${DOCRIVER_GW_HOME}/auth/src/docriver_auth:/app
     - ${HOME}/.ssh/docriver:/keystore
-    command: ["python", "/app/auth_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug"]
+    - ${DOCRIVER_GW_HOME}/infrastructure/auth/permissions.json:/permissions.json:ro
+    command: ["python", "/app/token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--permissions", "/permissions.json"]
   example-app-nginx:
     image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
     # TODO change to nginx from nginx-debug
