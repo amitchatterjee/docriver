@@ -34,6 +34,9 @@ def parse_args(args):
                         help='OKTA token URL')
     parser.add_argument('--oktaAud', default=None,
                         help='OKTA token audience')
+ 
+    parser.add_argument('--users', default=None,
+                        help="A file containing all users/passwords/roles/etc. Used for basic authentication and authorization")
     
     parser.add_argument('--permissions', required=True,
                         help="A file containing all the grants/permissions for various roles")
@@ -145,6 +148,8 @@ def get_token():
     return jsonify({'authorization': 'Bearer ' + encoded, 'token': payload}), 200, {'Content-Type': 'application/json'}
 
 def extract_subject_and_permissions(token):
+    if not okta_token_validator:
+        raise ValidationException('Bearer token validator is not configured. Currently, only OKTA is supported for authorization tokens')
     headers, claims, signing_inputs, signature = okta_token_validator.verify(token)
     subject = claims['sub']
     permissions = claims['docriverPermissions'] if 'docriverPermissions' in claims else None
@@ -165,7 +170,7 @@ def handle_internal_error(e):
     return jsonify({'error': str(e)}), 500, {'Content-Type': 'application/json'}
 
 if __name__ == '__main__':
-    global private_key, signer_cn, signer_cert, okta_token_validator, permissions
+    global private_key, signer_cn, signer_cert, okta_token_validator, permissions, users
     
     args = parse_args(sys.argv[1:])
     logging.basicConfig(level=args.log)
@@ -174,6 +179,12 @@ if __name__ == '__main__':
     with open(args.permissions, 'r') as file:
         file_content = file.read()
     permissions = json.loads(file_content)
+
+    if args.users:
+        file_content = None
+        with open(args.users, 'r') as file:
+            file_content = file.read()
+        users = json.loads(file_content)
 
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
     
