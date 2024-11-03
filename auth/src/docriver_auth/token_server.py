@@ -64,36 +64,27 @@ def authorize_element(assigned_permissions, requested_permissions, table, attrib
     raise AuthorizationException("Unauthorized attribute {}/{}".format(attribute, requested_permissions[attribute]))
 
 def authorize_request(assigned_permissions, requested_permissions):
-    if not assigned_permissions:
-        raise AuthorizationException("Not authorized for this application")
+    if 'realms' not in assigned_permissions:
+        raise ValidationException("Realms not specified in the assigned permission")
     
-    try:
-        assigned = json.loads(assigned_permissions)
+    if 'roles' not in assigned_permissions:
+        raise ValidationException("Roles not specified in the assigned permission")
+    
+    if 'resources' not in assigned_permissions:
+        raise ValidationException("Resources not specified in the assigned permission")
 
-        if 'realms' not in assigned:
-            raise ValidationException("Realms not specified in the assigned permission")
-        
-        if 'roles' not in assigned:
-            raise ValidationException("Roles not specified in the assigned permission")
-        
-        if 'resources' not in assigned:
-            raise ValidationException("Resources not specified in the assigned permission")
+    if 'realm' in requested_permissions:
+        # Check if the requested realm is in the assigned realm
+        if not next((e for e in assigned_permissions['realms'] if e in requested_permissions['realm']), None):
+            raise AuthorizationException("Realm unathorized")
+    else:
+        # Create a regex with all the assigned realms
+        requested_permissions['realm'] = "({})".format('|'.join(assigned_permissions['realms']))
+    
+    authorize_element(assigned_permissions, requested_permissions, permissions['operations'], 'txType')
 
-        if 'realm' in requested_permissions:
-            # Check if the requested realm is in the assigned realm
-            if not next((e for e in assigned['realms'] if e in requested_permissions['realm']), None):
-                raise AuthorizationException("Realm unathorized")
-        else:
-            # Create a regex with all the assigned realms
-            requested_permissions['realm'] = "({})".format('|'.join(assigned['realms']))
-        
-        authorize_element(assigned, requested_permissions, permissions['operations'], 'txType')
-
-        if requested_permissions['txType'] == 'submit':
-            authorize_element(assigned, requested_permissions, permissions['resources'], 'resourceType')
-
-    except(json.decoder.JSONDecodeError):
-        raise ValidationException("Assigned permissions not in JSON format")
+    if requested_permissions['txType'] == 'submit':
+        authorize_element(assigned_permissions, requested_permissions, permissions['resources'], 'resourceType')
 
 
 @app.route('/health', methods=['GET'])
@@ -110,12 +101,7 @@ def get_token():
     if authorization:
         splits = authorization.split()
         if splits[0].lower() == 'basic':
-            user_passwd = str(base64.b64decode(bytes(splits[1], 'utf-8')))
-            splits = user_passwd.split(':')
-            passwd = splits[1]
-            subject = splits[0]
-            # TODO Authenticate the user and get the permissions from the user profile
-            assigned_permissions = None
+            assigned_permissions = fetch_subject_and_permissions(splits[1])
         elif splits[0].lower() == 'bearer':
             subject,assigned_permissions = extract_subject_and_permissions(splits[1])
         else:
@@ -143,9 +129,25 @@ def get_token():
 
     encoded, payload = issue(private_key, signer_cn, subject, audience, expires, resource, requested_permissions)
 
-    # TODO fix this
     logging.info("Token issued to {}".format(subject))
     return jsonify({'authorization': 'Bearer ' + encoded, 'token': payload}), 200, {'Content-Type': 'application/json'}
+
+def fetch_subject_and_permissions(token):
+    if not users:
+        raise ValidationException('Basic Auth token validator is not configured')
+    user_passwd = str(base64.b64decode(bytes(token, 'utf-8')))
+    splits = user_passwd.split(':')
+    subject = splits[0]
+    passwd = splits[1]
+    # Validate password
+    if subject not in users:
+        raise AuthorizationException("Authentication failed")
+    # TODO Change to using sha256 based password encoding
+    # TODO Introduce AuthenticationException
+    if passwd != users[subject]['password']:
+        raise AuthorizationException("Authentication failed")
+    assigned_permissions = users[subject]
+    return subject,assigned_permissions
 
 def extract_subject_and_permissions(token):
     if not okta_token_validator:
@@ -153,8 +155,17 @@ def extract_subject_and_permissions(token):
     headers, claims, signing_inputs, signature = okta_token_validator.verify(token)
     subject = claims['sub']
     permissions = claims['docriverPermissions'] if 'docriverPermissions' in claims else None
-    return subject,permissions
-
+    
+    if not permissions:
+        raise AuthorizationException("Not authorized for this application")
+    
+    assigned_permissions = None
+    try:
+        assigned_permissions = json.loads(permissions)
+        return subject,assigned_permissions
+    except(json.decoder.JSONDecodeError):
+        raise ValidationException("Assigned permissions not in JSON format")
+    
 @app.errorhandler(ValidationException)
 def handle_validation_error(e):
     return jsonify({'error': str(e)}), 400, {'Content-Type': 'application/json'}
