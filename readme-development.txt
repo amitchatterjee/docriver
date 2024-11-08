@@ -21,7 +21,7 @@ source $HOME/docriver-venv/bin/activate
 # Exit the shell and create a new one before continuing further
 
 # Install python dependencies
-pip install -r $DOCRIVER_GW_HOME/docker/requirements.txt
+pip install -r $DOCRIVER_GW_HOME/docker/docriver-base/requirements.txt
 
 # Install pytest
 pip install -U pytest pytest-cov

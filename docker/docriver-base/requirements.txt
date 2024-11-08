@@ -8,7 +8,6 @@ fleep
 clamd
 pyjwt
 flickrapi
-pillow
 requests
 cryptography
 okta-jwt-verifier
