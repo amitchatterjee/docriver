@@ -20,8 +20,14 @@ source $HOME/docriver-venv/bin/activate
 # If you need to override some of the default properties in env.sh, add them to ~/.bashrc
 # Exit the shell and create a new one before continuing further
 
-# Install python dependencies
+# Install python dependencies - this may need some libraries to be installed on your Linux environment
 pip install -r $DOCRIVER_GW_HOME/docker/docriver-base/requirements.txt
+
+# Fix a bug in flickrapi
+vi ~/docriver-venv/lib64/python3.13/site-packages/flickrapi/core.py
+:690
+# replace line 690 with
+photoset = list(rsp)[0]
 
 # Install pytest
 pip install -U pytest pytest-cov
@@ -50,6 +56,10 @@ sudo dnf install mysql
 
 # Create storage area
 mkdir -p $HOME/storage/docriver/raw/p123456/
+# TODO - Fix this. This is a terrible thing, but needs to be done to run the docker
+sudo chmod -R 777 $HOME/storage/docriver
+
+## All passwords are 'docriver' when prompted
 
 # Add keys and certificates for token verification
 rm $HOME/.ssh/docriver/*
@@ -68,6 +78,9 @@ cat $HOME/.ssh/docriver/master.crt $HOME/.ssh/docriver/docriver.crt $HOME/.ssh/d
 openssl pkcs12 -export -name "docriver" -out $HOME/.ssh/docriver/truststore.p12 -inkey $HOME/.ssh/docriver/master.key -in $HOME/.ssh/docriver/truststore.crt
 
 openssl pkcs12 -info -in $HOME/.ssh/docriver/truststore.p12 -passin pass:docriver
+--------------------------------------------------------------
+# Create TLS key and certificate for https access
+openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -keyout $HOME/.ssh/docriver/nginx.key -out $HOME/.ssh/docriver/nginx.crt
 
 # Install and setup for Visual Code debugging
 pip install debugpy
@@ -102,6 +115,7 @@ cd $DOCRIVER_GW_HOME/auth
 python -m build --wheel
 
 # Install a package
+cd $DOCRIVER_GW_HOME/auth
 pip install --force-reinstall dist/docriver_auth-1.0.0b0-py3-none-any.whl
 
 #######################################################
@@ -125,7 +139,7 @@ docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-backen
 # Start the docker gateway docker containers - Note that this is not needed if you want to run the gateway by executing the python commands shown below.
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-gateway.yml -p docriver up --detach
 
-# Run the gateway
+# Run the gateway service
 python $DOCRIVER_GW_HOME/server/src/docriver_server/gateway.py --rawFilesystemMount $HOME/storage/docriver/raw --untrustedFilesystemMount $HOME/storage/docriver/untrusted --authKeystore $HOME/.ssh/docriver/truststore.p12 --authPassword docriver --debug
 
 # Run the gateway with remote debugging
@@ -162,7 +176,7 @@ drc.py --realm p123456 --docriverUrl https://localhost:8443 --noverify --otelTra
 dr-scrub.sh
 
 # Access the metadata
-mysql -h 127.0.0.1 -u docriver -p docriver
+mysql -h 127.0.0.1 -u docriver -pdocriver
 
 #######################################################
 # Run tests

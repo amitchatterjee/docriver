@@ -6,6 +6,7 @@ flask-accept
 flask-cors
 fleep
 clamd
+pillow
 pyjwt
 flickrapi
 requests

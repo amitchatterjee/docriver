@@ -109,11 +109,9 @@ def path_docs_message(tx, doc_prefix, excludes=None, doc_references=None, tx_ref
     if tx_references:
         tx['references'] = tx_references
 
-    for i, file in enumerate(os.listdir(os.path.join(raw_dir(), TEST_REALM))):
-        if excludes and file in excludes:
-            continue
+    for i, file in enumerate(sorted([f for f in os.listdir(os.path.join(raw_dir(), TEST_REALM)) if excludes and f not in excludes])):
         document = {
-                'document': doc_prefix + str(i),
+                'document': f"{doc_prefix}{i+1}",
                 'type': 'sample',
                 'content': {
                     'path': file
