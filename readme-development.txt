@@ -10,7 +10,7 @@ sudo dnf install -y jq
 
 # Create python venv
 cd $HOME
-python -m venv docriver-venv
+python3.9 -m venv docriver-venv
 
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
@@ -24,7 +24,7 @@ source $HOME/docriver-venv/bin/activate
 pip install -r $DOCRIVER_GW_HOME/docker/docriver-base/requirements.txt
 
 # Fix a bug in flickrapi
-vi ~/docriver-venv/lib64/python3.13/site-packages/flickrapi/core.py
+vi ~/docriver-venv/lib64/python3.9/site-packages/flickrapi/core.py
 :690
 # replace line 690 with
 photoset = list(rsp)[0]
