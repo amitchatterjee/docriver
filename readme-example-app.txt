@@ -25,6 +25,15 @@ echo docriver:$(echo 'docriver' | openssl passwd -apr1 -stdin) > $DOCRIVER_GW_HO
         Value: appuser.docriverPermissions
         Include in: Profile
 
+# Create TLS key and certificate for https access
+openssl genrsa -out $HOME/.ssh/docriver/exampleapp-nginx.key 4096
+
+# Important: Make sure that the CN matches the hostname
+openssl req -new -key $HOME/.ssh/docriver/exampleapp-nginx.key -nodes -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=gateway.quik-j.com" -out $HOME/.ssh/docriver/exampleapp-nginx.csr
+
+# Enter the CA's secret key - see the readme-development.txt
+openssl x509 -req -in $HOME/.ssh/docriver/exampleapp-nginx.csr -CA $HOME/.ssh/quik-CA.pem -CAkey $HOME/.ssh/quik-CA.key -CAcreateserial -out $HOME/.ssh/docriver/exampleapp-nginx.crt -days 825 -sha256 -extfile $DOCRIVER_GW_HOME/infrastructure/nginx/conf/x509-cert-exampleapp.ext
+
 # Start the components
 docker compose -f $DOCRIVER_GW_HOME/infrastructure/compose/docker-compose-example-app.yml -p docriver up --detach
 

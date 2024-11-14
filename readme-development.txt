@@ -12,6 +12,14 @@ sudo dnf install -y jq
 cd $HOME
 python3.9 -m venv docriver-venv
 
+# https://deliciousbrains.com/ssl-certificate-authority-for-local-https-development/
+# Create a CA cert so that we can avoid all the "Take me to Safety" stuff. Use a private password (my password) when prompted
+openssl genrsa -des3 -out ~/.ssh/quik-CA.key 2048
+openssl req -x509 -new -nodes -key ~/.ssh/quik-CA.key -sha256 -days 1825 -out ~/.ssh/quik-CA.pem
+sudo cp ~/.ssh/quik-CA.pem /etc/pki/ca-trust/source/anchors/
+sudo update-ca-trust
+grep -i quik /etc/ssl/certs/ca-certificates.crt
+
 # Add to ~/.bashrc
 # Change the line below to point to the root of the docriver source 
 export DOCRIVER_GW_HOME=$HOME/git/docriver-gateway
@@ -78,9 +86,18 @@ cat $HOME/.ssh/docriver/master.crt $HOME/.ssh/docriver/docriver.crt $HOME/.ssh/d
 openssl pkcs12 -export -name "docriver" -out $HOME/.ssh/docriver/truststore.p12 -inkey $HOME/.ssh/docriver/master.key -in $HOME/.ssh/docriver/truststore.crt
 
 openssl pkcs12 -info -in $HOME/.ssh/docriver/truststore.p12 -passin pass:docriver
---------------------------------------------------------------
+
 # Create TLS key and certificate for https access
-openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -keyout $HOME/.ssh/docriver/nginx.key -out $HOME/.ssh/docriver/nginx.crt
+openssl genrsa -out $HOME/.ssh/docriver/docriver-nginx.key 4096
+
+# Important: Make sure that the CN matches the hostname
+openssl req -new -key $HOME/.ssh/docriver/docriver-nginx.key -nodes -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -out $HOME/.ssh/docriver/docriver-nginx.csr
+
+# Enter the CA's secret key
+openssl x509 -req -in $HOME/.ssh/docriver/docriver-nginx.csr -CA $HOME/.ssh/quik-CA.pem -CAkey $HOME/.ssh/quik-CA.key -CAcreateserial -out $HOME/.ssh/docriver/docriver-nginx.crt -days 825 -sha256 -extfile $DOCRIVER_GW_HOME/infrastructure/nginx/conf/x509-cert-docriver.ext
+
+# Old stuff
+# openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -keyout $HOME/.ssh/docriver/nginx.key -out $HOME/.ssh/docriver/nginx.crt
 
 # Install and setup for Visual Code debugging
 pip install debugpy
