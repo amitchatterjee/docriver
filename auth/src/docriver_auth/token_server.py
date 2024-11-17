@@ -8,6 +8,7 @@ import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from flask_accept import accept
+from passlib.apache import HtpasswdFile
 from okta.verify import OktaTokenValidator
 
 from exceptions import AuthorizationException
@@ -36,7 +37,9 @@ def parse_args(args):
                         help='OKTA token audience')
  
     parser.add_argument('--users', default=None,
-                        help="A file containing all users/passwords/roles/etc. Used for basic authentication and authorization")
+                        help="A file containing all users/roles/etc. Used for basic authorization")
+    parser.add_argument('--passwords', default=None,
+                        help="A file containing htpasswords. Used for basic authentication")
     
     parser.add_argument('--permissions', required=True,
                         help="A file containing all the grants/permissions for various roles")
@@ -53,17 +56,19 @@ def parse_args(args):
     # TODO add validation
     return args
 
-def authorize_element(assigned_permissions, requested_permissions, table, attribute):
+def authorize_operation(assigned_permissions, operation):
     assigned_roles = assigned_permissions["roles"]
     for assigned_role in assigned_roles:
-        if assigned_role in table:
-            values = table[assigned_role]
-        if requested_permissions[attribute] in values:
+        if assigned_role in permissions and operation in permissions[assigned_role]:
             return
-        
-    raise AuthorizationException("Unauthorized attribute {}/{}".format(attribute, requested_permissions[attribute]))
+    raise AuthorizationException(f"Unauthorized operation: {operation}")
+
+def authorize_resource(assigned_permissions, resource):
+    if resource not in assigned_permissions["resources"]:
+        raise AuthorizationException(f"Unauthorized resource: {resource}")
 
 def authorize_request(assigned_permissions, requested_permissions):
+    # logging.info(f"assigned: {assigned_permissions}\nrequested: {requested_permissions}")
     if 'realms' not in assigned_permissions:
         raise ValidationException("Realms not specified in the assigned permission")
     
@@ -75,17 +80,17 @@ def authorize_request(assigned_permissions, requested_permissions):
 
     if 'realm' in requested_permissions:
         # Check if the requested realm is in the assigned realm
-        if not next((e for e in assigned_permissions['realms'] if e in requested_permissions['realm']), None):
+        if requested_permissions['realm'] not in assigned_permissions['realms']:
             raise AuthorizationException("Realm unathorized")
     else:
+        # TODO - make realm mandatory instead of doing this - this is not very secure
         # Create a regex with all the assigned realms
         requested_permissions['realm'] = "({})".format('|'.join(assigned_permissions['realms']))
     
-    authorize_element(assigned_permissions, requested_permissions, permissions['operations'], 'txType')
+    authorize_operation(assigned_permissions, requested_permissions['txType'])
 
     if requested_permissions['txType'] == 'submit':
-        authorize_element(assigned_permissions, requested_permissions, permissions['resources'], 'resourceType')
-
+        authorize_resource(assigned_permissions, requested_permissions['resourceType'])
 
 @app.route('/health', methods=['GET'])
 def health():
@@ -101,9 +106,9 @@ def get_token():
     if authorization:
         splits = authorization.split()
         if splits[0].lower() == 'basic':
-            assigned_permissions = fetch_subject_and_permissions(splits[1])
+            subject,assigned_permissions = get_sub_and_perms_from_db(splits[1])
         elif splits[0].lower() == 'bearer':
-            subject,assigned_permissions = extract_subject_and_permissions(splits[1])
+            subject,assigned_permissions = get_sub_and_perms_from_token(splits[1])
         else:
             raise ValidationException('Unsupported authorization method')
     else:
@@ -118,9 +123,11 @@ def get_token():
     requested_permissions = payload['permissions']
 
     # Validate the permissions assigned to the user against the requested permissions
-    authorize_request(assigned_permissions,requested_permissions)
+    authorize_request(assigned_permissions, requested_permissions)
 
-    requested_permissions['tx'] = str(uuid.uuid4())
+    # Assign a transaction id
+    if 'tx' not in requested_permissions:
+        requested_permissions['tx'] = str(uuid.uuid4())
 
     # TODO pass it as command line param instead of hardcoding    
     expires = 60
@@ -132,24 +139,24 @@ def get_token():
     logging.info("Token issued to {}".format(subject))
     return jsonify({'authorization': 'Bearer ' + encoded, 'token': payload}), 200, {'Content-Type': 'application/json'}
 
-def fetch_subject_and_permissions(token):
+def get_sub_and_perms_from_db(token):
     if not users:
         raise ValidationException('Basic Auth token validator is not configured')
-    user_passwd = str(base64.b64decode(bytes(token, 'utf-8')))
+    user_passwd = base64.b64decode(bytes(token, 'utf-8')).decode("utf-8")
     splits = user_passwd.split(':')
     subject = splits[0]
     passwd = splits[1]
     # Validate password
     if subject not in users:
-        raise AuthorizationException("Authentication failed")
-    # TODO Change to using sha256 based password encoding
+        raise AuthorizationException(f"Authentication failed - user: {subject} not found")
     # TODO Introduce AuthenticationException
-    if passwd != users[subject]['password']:
-        raise AuthorizationException("Authentication failed")
+    if not passwords.check_password(subject, passwd):
+        raise AuthorizationException("Authentication failed - password mismatch")
     assigned_permissions = users[subject]
+    # logging.info(assigned_permissions)
     return subject,assigned_permissions
 
-def extract_subject_and_permissions(token):
+def get_sub_and_perms_from_token(token):
     if not okta_token_validator:
         raise ValidationException('Bearer token validator is not configured. Currently, only OKTA is supported for authorization tokens')
     headers, claims, signing_inputs, signature = okta_token_validator.verify(token)
@@ -181,7 +188,7 @@ def handle_internal_error(e):
     return jsonify({'error': str(e)}), 500, {'Content-Type': 'application/json'}
 
 if __name__ == '__main__':
-    global private_key, signer_cn, signer_cert, okta_token_validator, permissions, users
+    global private_key, signer_cn, signer_cert, okta_token_validator, permissions, users, passwords
     
     args = parse_args(sys.argv[1:])
     logging.basicConfig(level=args.log)
@@ -196,7 +203,8 @@ if __name__ == '__main__':
         with open(args.users, 'r') as file:
             file_content = file.read()
         users = json.loads(file_content)
-
+        passwords = HtpasswdFile(args.passwords)
+        
     private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.password)
     
     okta_token_validator = None

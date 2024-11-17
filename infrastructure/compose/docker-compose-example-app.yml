@@ -3,31 +3,15 @@ networks:
     name: dev
     external: true
 services:
-  docriver-token:
-    image: docriver-base:0.0.1-SNAPSHOT
-    user: 1000:1000
-    healthcheck:
-      interval: 60s
-      retries: 10
-      start_period: 10s
-      start_interval: 10s
-      test: curl --insecure https://localhost:5001/health || exit 1
-      timeout: 30s
-    volumes:
-    - ${DOCRIVER_GW_HOME}/auth/src/docriver_auth:/app
-    - ${HOME}/.ssh/docriver:/keystore
-    - ${DOCRIVER_GW_HOME}/infrastructure/auth/permissions.json:/permissions.json:ro
-    - ${DOCRIVER_GW_HOME}/infrastructure/auth/users.json:/users.json:ro
-    command: ["python", "/app/token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--permissions", "/permissions.json", "--users", "/users.json"]
   example-app-nginx:
     image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
     # TODO change to nginx from nginx-debug
     command: nginx-debug -g 'daemon off;'
     # stdin_open: true
     # tty: true
-    depends_on:
-      docriver-token:
-        condition: service_healthy
+    #depends_on:
+      #docriver-token:
+      #  condition: service_healthy
     environment:
       DOCRIVER_OIDC_CLIENTID: ${DOCRIVER_OIDC_CLIENTID}
       DOCRIVER_OIDC_SECRET: ${DOCRIVER_OIDC_SECRET}

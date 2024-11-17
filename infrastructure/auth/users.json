@@ -1,8 +1,7 @@
 {
-    "amit": {
-        "password": "XXXXXX",
-        "roles": [],
-        "realms": [],
-        "resources": []
+    "docriver": {
+        "roles": ["imageSubmitter"],
+        "realms": ["p123456"],
+        "resources": ["image"]
     }
 }

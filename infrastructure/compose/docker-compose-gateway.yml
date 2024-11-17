@@ -34,22 +34,29 @@ services:
       start_interval: 10s
       test: curl --insecure https://localhost:5000/health || exit 1
       timeout: 30s
-#  docriver-nginx:
-#    image: tomsmithokta/nginx-oss-okta:${DOCRIVER_NGINX_VERSION:-latest}
-#    depends_on:
-#      docriver-gateway:
-#        condition: service_healthy
-#    # TODO change to nginx from nginx-debug
-#    command: nginx-debug -g 'daemon off;'
-#    volumes:
-#    - ${DOCRIVER_GW_HOME}/infrastructure/nginx/conf/gateway.conf:/etc/nginx/nginx.conf
-#    - ${HOME}/.ssh/docriver:/etc/nginx/certs
-#    ports:
-#    - ${DOCRIVER_NGINX_PORT:-8443}:443
+  docriver-token:
+    image: docriver-base:0.0.1-SNAPSHOT
+    user: 1000:1000
+    healthcheck:
+      interval: 60s
+      retries: 10
+      start_period: 10s
+      start_interval: 10s
+      test: curl --insecure https://localhost:5001/health || exit 1
+      timeout: 30s
+    volumes:
+    - ${DOCRIVER_GW_HOME}/auth/src/docriver_auth:/app
+    - ${HOME}/.ssh/docriver:/keystore
+    - ${DOCRIVER_GW_HOME}/infrastructure/auth/permissions.json:/permissions.json:ro
+    - ${DOCRIVER_GW_HOME}/infrastructure/auth/users.json:/users.json:ro
+    - ${HOME}/.docriver/.htpasswd:/.htpasswd:ro
+    command: ["python", "/app/token_server.py", "--keystore", "/keystore/docriver.p12", "--password", "docriver", "--oktaUrl", "${DOCRIVER_AUTH_URL}", "--oktaAud", "api://default", "--tlsKey", "/keystore/docriver.key", "--tlsCert", "/keystore/docriver.crt", "--log", "INFO", "--debug", "--permissions", "/permissions.json", "--users", "/users.json", "--passwords", "/.htpasswd"]
   docriver-nginx:
     image: nginx-opentel:0.0.1-SNAPSHOT
     depends_on:
       docriver-gateway:
+        condition: service_healthy
+      docriver-token:
         condition: service_healthy
     # command: nginx-debug -g 'daemon off;'
     volumes:

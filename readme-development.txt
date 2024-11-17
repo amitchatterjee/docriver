@@ -96,8 +96,10 @@ openssl req -new -key $HOME/.ssh/docriver/docriver-nginx.key -nodes -subj "/C=US
 # Enter the CA's secret key
 openssl x509 -req -in $HOME/.ssh/docriver/docriver-nginx.csr -CA $HOME/.ssh/quik-CA.pem -CAkey $HOME/.ssh/quik-CA.key -CAcreateserial -out $HOME/.ssh/docriver/docriver-nginx.crt -days 825 -sha256 -extfile $DOCRIVER_GW_HOME/infrastructure/nginx/conf/x509-cert-docriver.ext
 
-# Old stuff
-# openssl req -new -newkey rsa:4096 -days 365 -nodes -x509 -subj "/C=US/ST=NC/L=Apex/O=Docriver Security/OU=R&D Department/CN=docriver.quik-j.com" -keyout $HOME/.ssh/docriver/nginx.key -out $HOME/.ssh/docriver/nginx.crt
+# Create a .htpasswd file
+mkdir -p $HOME/.docriver
+htpasswd -c $HOME/.docriver/.htpasswd docriver
+# Create more users as needed using the above command without the -c option
 
 # Install and setup for Visual Code debugging
 pip install debugpy

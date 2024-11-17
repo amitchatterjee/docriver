@@ -21,3 +21,4 @@ opentelemetry-instrumentation-requests
 opentelemetry-instrumentation-logging
 psutil
 paramiko
+passlib

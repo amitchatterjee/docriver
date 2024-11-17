@@ -1,10 +1,16 @@
 {
-    "operations": {
-        "appealsSupport": ["get-document", "submit", "delete"],
-        "appealsAuditor": ["get-document"]
-    },
-    
-    "resources": {
-        "appealsSupport": ["claim"]
-    }
+    "appealsSupport": [
+        "get-document",
+        "submit",
+        "delete"
+    ],
+    "appealsAuditor": [
+        "get-document"
+    ],
+    "imageSubmitter": [
+        "get-document",
+        "get-events",
+        "submit",
+        "delete"
+    ]
 }

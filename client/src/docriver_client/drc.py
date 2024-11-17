@@ -17,9 +17,9 @@ import urllib3
 import base64
 import shutil
 import paramiko
+from requests.auth import HTTPBasicAuth
 
 from contextlib import contextmanager
-
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor, ConsoleSpanExporter
@@ -57,6 +57,11 @@ def parse_toplevel_args():
                         help='Keystore password')
     parser.add_argument('--subject', default='anon',
                         help='Principal of the subject')
+    parser.add_argument('--tokenServerUrl', default=None,
+                        help='Token Server URL')
+    parser.add_argument('--secret', default=None,
+                        help='Token server secret')
+
     parser.add_argument('--audience', default='docriver',
                         help='Target application')
     parser.add_argument('--resource', default='document',
@@ -86,6 +91,24 @@ def parse_toplevel_args():
 
     return parser.parse_args()
 
+def get_token(global_args, permissions):
+    if global_args.tokenServerUrl:
+        with requests.post(f"{global_args.tokenServerUrl}/token",    
+            headers={'Accept': 'application/json'}, 
+                json={'audience': global_args.audience, 'permissions': permissions}, 
+                verify=not global_args.noverify, 
+                auth=HTTPBasicAuth(global_args.subject, global_args.secret)) as response:
+            response.raise_for_status()
+            json_response = response.json()
+            auth = json_response['authorization']
+            payload = json_response['token']
+    else:
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
+            global_args.keystore, global_args.keystorePassword)
+        encoded, payload = issue(private_key, signer_cn, global_args.subject, global_args.audience,
+                                    60,  global_args.resource, permissions)
+        auth = f"Bearer {encoded}"
+    return auth, payload
 
 def parse_get_args(global_args):
     parser = argparse.ArgumentParser()
@@ -94,7 +117,6 @@ def parse_get_args(global_args):
         'command', help=f"resource to get. Supported resources: {supported_resources}")
     parser.add_argument('args', nargs=argparse.REMAINDER)
     return parser.parse_args(global_args.args)
-
 
 def handle_get(global_args):
     args = parse_get_args(global_args)
@@ -106,18 +128,16 @@ def handle_get(global_args):
         # Should not happen
         raise Exception('Unknown resource')
 
-
 def handle_get_doc(global_args, args):
     with new_span('get_doc', attributes={'realm': global_args.realm}) as span:
         args = parse_get_doc(args)
-        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-            global_args.keystore, global_args.keystorePassword)
-        # TODO change to narrower permissions
-        encoded, payload = issue(private_key, signer_cn, global_args.subject, global_args.audience,
-                                    60,  global_args.resource, {'txType': 'get-document', 'document': '.*'})
 
+        # TODO change to narrower permissions
+        auth, token = get_token(global_args, {'txType': 'get-document', 'document': '.*'})
         with requests.get(f"{global_args.docriverUrl}/document/{global_args.realm}/{quote(args.name)}",
-                            headers={'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify, stream=True) as response:
+                            headers={'Authorization': auth}, 
+                            verify=not global_args.noverify, 
+                            stream=True) as response:
             response.raise_for_status()
             
             output_file = args.output
@@ -133,14 +153,12 @@ def handle_get_doc(global_args, args):
                     file.write(chunk)
             print(to_json({'status': 'OK', 'path': output_file}))
 
-
 def parse_get_doc(args):
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", help="Output path", default='/tmp')
     parser.add_argument("--name", help="Document name", required=True)
     args = parser.parse_args(args.args)
     return args
-
 
 def parse_get_events(args):
     parser = argparse.ArgumentParser()
@@ -150,21 +168,17 @@ def parse_get_events(args):
     args = parser.parse_args(args.args)
     return args
 
-
 def handle_get_events(global_args, args):
     with new_span('get_events', attributes={'realm': global_args.realm}) as span:
         args = parse_get_events(args)
-        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-            global_args.keystore, global_args.keystorePassword)
         # TODO change to narrower permissions
-        encoded, payload = issue(private_key, signer_cn, global_args.subject,
-                                global_args.audience, 60,  global_args.resource, {'txType': 'get-events'})
+        auth, token = get_token(global_args, {'txType': 'get-events'})
         params = {}
         if args.fromTime:
             params['from'] = args.fromTime
         if args.toTime:
             params['to'] = args.toTime
-        with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json', 'Authorization': f"Bearer {encoded}"}, verify=not global_args.noverify) as response:
+        with requests.get(f"{global_args.docriverUrl}/tx/{global_args.realm}", params=params, headers={'Accept': 'application/json', 'Authorization': auth}, verify=not global_args.noverify) as response:
             response.raise_for_status()
             json_response = response.json()
             print(to_json(json_response))
@@ -241,16 +255,13 @@ def handle_submit(global_args):
         
         copy_files(global_args, args, basedir, files)
 
-        # Setup auth token
-        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
-            global_args.keystore, global_args.keystorePassword)
-        requested_grants = {'txType': 'submit', 'documentCount': len(files)}
+        permissions = {'tx': manifest['tx'], 'txType': 'submit', 'documentCount': len(files)}
         if args.resourceId:
-            requested_grants['resourceId'] = args.resourceId
-            requested_grants['resourceType'] = args.resourceType
-        encoded, payload = issue(private_key, signer_cn, global_args.subject,
-                                global_args.audience, 60,  global_args.resource, requested_grants)
-
+            permissions['resourceId'] = args.resourceId
+            permissions['resourceType'] = args.resourceType
+        
+        auth, token = get_token(global_args, permissions)
+        
         response_json = None
         # Send the request
         if args.method == 'stream':
@@ -262,13 +273,13 @@ def handle_submit(global_args):
                 form_files.append(
                     ('files', (file, open(os.path.join(basedir, file), 'rb'), mime)))
             with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
-                            headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
+                            headers={'Authorization': auth, 'Accept': 'application/json'}, verify=not global_args.noverify, files=form_files) as response:
                 response.raise_for_status()
                 response_json = response.json()
         else:
             with requests.post(f"{global_args.docriverUrl}/tx/{global_args.realm}",
                             json=manifest,
-                            headers={'Authorization': f"Bearer {encoded}", 'Accept': 'application/json', 'Content-Type': 'application/json'}, verify=not global_args.noverify) as response:
+                            headers={'Authorization': auth, 'Accept': 'application/json', 'Content-Type': 'application/json'}, verify=not global_args.noverify) as response:
                 response.raise_for_status()
                 response_json = response.json()
         
