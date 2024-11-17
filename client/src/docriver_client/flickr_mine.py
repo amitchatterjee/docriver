@@ -9,8 +9,10 @@ import shutil
 import logging
 import requests
 import json
+import urllib3
 from PIL import Image
 from datetime import datetime
+from requests.auth import HTTPBasicAuth
 
 from docriver_auth.keystore import get_entries
 from docriver_auth.auth_token import issue
@@ -41,6 +43,10 @@ def parse_args():
                         help='Target application')
     parser.add_argument('--resource', default='document',
                         help='resource to authorize')
+    parser.add_argument('--tokenServerUrl', default=None,
+                        help='Token Server URL')
+    parser.add_argument('--tokenServerSecret', default=None,
+                        help='Token server secret')
     
     parser.add_argument("--realm", help="Realm to submit document to")
 
@@ -69,9 +75,29 @@ def pretty_print(req):
         req.body,
     ))
 
+def get_token(args, permissions):
+    if args.tokenServerUrl:
+        with requests.post(f"{args.tokenServerUrl}/token",    
+            headers={'Accept': 'application/json'}, 
+                json={'audience': args.audience, 'permissions': permissions}, 
+                verify=not args.noverify, 
+                auth=HTTPBasicAuth(args.subject, args.tokenServerSecret)) as response:
+            response.raise_for_status()
+            json_response = response.json()
+            auth = json_response['authorization']
+            payload = json_response['token']
+    else:
+        private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(
+            args.keystore, args.keystorePassword)
+        encoded, payload = issue(private_key, signer_cn, args.subject, args.audience,
+                                    60,  args.resource, permissions)
+        auth = f"Bearer {encoded}"
+    return auth, payload
+
 if __name__ == '__main__':
     args = parse_args()
     logging.basicConfig(level=args.log)
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
     # If we are using a raw file ingestion, the location needs to be shared between the client and the server
     tmp_folder = None
@@ -137,6 +163,7 @@ if __name__ == '__main__':
         doc_attribs = {
             'document': args.prefix + ('/' if args.prefix else '') + cur_time + '/' + filename,
             'type': 'image',
+            'references': [{'resourceId': filename, 'resourceType': 'image'}],
             "content": {
                 "path": path_prefix + filename
             }
@@ -147,9 +174,8 @@ if __name__ == '__main__':
         if count >= args.max:
             break
 
-    private_key, public_key, signer_cert, signer_cn, public_keys = get_entries(args.keystore, args.keystorePassword)
-    encoded, payload = issue(private_key, signer_cn, args.subject, args.audience, 60,  args.resource, {'txType': 'submit', 'documentCount': count})
-    manifest['authorization'] = 'Bearer ' + encoded
+    auth, token = get_token(args, {'tx': manifest['tx'], 'txType': 'submit', 'documentCount': count, 'resourceType': 'image'})
+    manifest['authorization'] = auth
 
     url = args.docriverUrl + '/tx/' + args.realm
     response = None

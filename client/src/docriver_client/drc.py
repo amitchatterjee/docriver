@@ -59,7 +59,7 @@ def parse_toplevel_args():
                         help='Principal of the subject')
     parser.add_argument('--tokenServerUrl', default=None,
                         help='Token Server URL')
-    parser.add_argument('--secret', default=None,
+    parser.add_argument('--tokenServerSecret', default=None,
                         help='Token server secret')
 
     parser.add_argument('--audience', default='docriver',
@@ -97,7 +97,7 @@ def get_token(global_args, permissions):
             headers={'Accept': 'application/json'}, 
                 json={'audience': global_args.audience, 'permissions': permissions}, 
                 verify=not global_args.noverify, 
-                auth=HTTPBasicAuth(global_args.subject, global_args.secret)) as response:
+                auth=HTTPBasicAuth(global_args.subject, global_args.tokenServerSecret)) as response:
             response.raise_for_status()
             json_response = response.json()
             auth = json_response['authorization']

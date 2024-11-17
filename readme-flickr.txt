@@ -6,3 +6,7 @@ flickr_mine.py --api $FLICKR_API_KEY --secret $FLICKR_API_SECRET --realm p123456
 
 # Run with HTTP multipart
 flickr_mine.py --api $FLICKR_API_KEY --secret $FLICKR_API_SECRET --realm p123456 --tags cheetah --max 10 --prefix cheetah --keystore $HOME/.ssh/docriver/docriver.p12 --keystorePassword 'docriver' --subject collector@docriver.io
+
+# Use token server:
+flickr_mine.py --api $FLICKR_API_KEY --secret $FLICKR_API_SECRET --realm p123456 --tags cheetah --max 10 --prefix cheetah --subject docriver --tokenServerUrl https://localhost:8443 --tokenServerSecret docriver --docriverUrl https://localhost:8443 --noverify
+
